@@ -177,9 +177,9 @@ struct ContentView: View {
                 ForEach(Array(L.rows.enumerated()), id: \.offset) { _, r in
                     Text(r).font(.system(size: 3.2 * u)).foregroundColor(Color(white: 0.95))
                 }
-            }.foregroundColor(.white).padding(2.8 * u)
+            }.foregroundColor(.white).shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1).padding(2.8 * u)
         }
-        .background(Color(red: 0.055, green: 0.10, blue: 0.14).opacity(0.85))
+        .background(Color(uiColor: StampPreferences.background))
         .clipShape(RoundedRectangle(cornerRadius: 1.6 * u))
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -190,7 +190,8 @@ struct NoteView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Ghi chú") { KeyField("note", "Ghi chú") }
+                NotePresetsSection()
+                Section("Ghi chú") { KeyField("proj", "Nhiệm vụ / công việc"); KeyField("note", "Ghi chú") }
                 Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
             }
             .navigationTitle("Ghi chú nhanh")
@@ -248,7 +249,8 @@ struct GalleryView: View {
         let chosen = recs.filter { sel.contains($0.id) }
         let text = model.batchText(chosen)
         UIPasteboard.general.string = text
-        items = chosen.map { CameraModel.photosDir.appendingPathComponent($0.file) as Any } + [text as Any]
+        items = chosen.map { CameraModel.photosDir.appendingPathComponent($0.file) as Any }
+        if !text.isEmpty { items.append(text) }
         showShare = true
     }
 }
@@ -286,6 +288,7 @@ struct SettingsView: View {
     @AppStorage("hdg") private var hdg = true
     @AppStorage("wmOn") private var wmOn = true
     @AppStorage("logoOn") private var logoOn = true
+    @AppStorage("shutterSound") private var shutterSound = true
     @State private var pick: PhotosPickerItem?
 
     var body: some View {
@@ -298,6 +301,9 @@ struct SettingsView: View {
                     KeyField("wm", "Watermark chìm (tên công ty…)")
                 }
                 Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
+                NotePresetsSection()
+                StampBackgroundSection()
+                Section("Chụp ảnh") { Toggle("Tiếng chụp ảnh", isOn: $shutterSound) }
                 Section("Hiển thị trên ảnh") {
                     Toggle("Ngày giờ", isOn: $time); Toggle("Toạ độ GPS", isOn: $gps); Toggle("Độ cao", isOn: $alt)
                     Toggle("Hướng la bàn", isOn: $hdg); Toggle("Watermark chìm", isOn: $wmOn)

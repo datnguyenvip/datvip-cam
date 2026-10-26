@@ -27,4 +27,9 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cx")
     implementation("androidx.camera:camera-lifecycle:$cx")
     implementation("androidx.camera:camera-view:$cx")
+    implementation("androidx.camera:camera-video:$cx")
+    implementation("androidx.media3:media3-transformer:1.3.1")
+    implementation("androidx.media3:media3-effect:1.3.1")
+    implementation("androidx.media3:media3-common:1.3.1")
+    implementation("com.google.guava:guava:32.1.3-android")
 }
