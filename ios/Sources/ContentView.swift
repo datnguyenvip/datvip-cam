@@ -35,11 +35,10 @@ struct CustomFields: View {
 struct ContentView: View {
     @StateObject private var m = CameraModel()
     @State private var showSettings = false
-    @State private var showShare = false
     @State private var showNote = false
     @State private var showGallery = false
     @AppStorage("logoOn") private var logoOn = true
-    @State private var logoImg = UIImage(contentsOfFile: CameraModel.logoURL.path)
+    @State private var logoImg = LogoImage.load()
     private let orange = Color(red: 1, green: 0.42, blue: 0.10)
     private let softOrange = Color(red: 1, green: 0.64, blue: 0.36)
     private let yellow = Color(red: 1, green: 0.82, blue: 0.25)
@@ -82,19 +81,11 @@ struct ContentView: View {
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }
                     }.padding(10)
                 }
-                .overlay(alignment: .trailing) {
-                    if m.showShareHint {
-                        Button { UIPasteboard.general.string = m.lastText; showShare = true } label: {
-                            Text("📤 Chia sẻ + vị trí").font(.system(size: 14, weight: .bold)).foregroundColor(.white)
-                                .padding(.horizontal, 14).padding(.vertical, 10).background(orange).clipShape(Capsule())
-                        }.padding(10)
-                    }
-                }
                 .onAppear { m.previewAspect = fw / fh; m.start() }
             }
             modeBar
             HStack {
-                chip("photo.on.rectangle") { showGallery = true }
+                chip("photo.on.rectangle") { if !m.isRecording { showGallery = true } }
                 Button { if m.videoMode { m.toggleRecord() } else { m.shoot() } } label: { shutterLabel }.frame(maxWidth: .infinity)
                 chip("arrow.triangle.2.circlepath.camera") { if !m.isRecording { m.flip() } }
                 chip("gearshape") { showSettings = true }
@@ -102,10 +93,9 @@ struct ContentView: View {
             .padding(.vertical, 14).background(Color(red: 0.04, green: 0.08, blue: 0.10))
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings, onDismiss: { logoImg = UIImage(contentsOfFile: CameraModel.logoURL.path) }) { SettingsView() }
+        .sheet(isPresented: $showSettings, onDismiss: { logoImg = LogoImage.load() }) { SettingsView() }
         .sheet(isPresented: $showNote) { NoteView() }
-        .sheet(isPresented: $showGallery) { GalleryView(model: m) }
-        .sheet(isPresented: $showShare) { ShareSheet(items: m.shareItems) }
+        .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
     }
 
     private var modeBar: some View {
@@ -155,8 +145,8 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let lg = lg {
                     HStack(alignment: .top, spacing: 1.8 * u) {
-                        Image(uiImage: lg).resizable().scaledToFit().frame(maxWidth: 24 * u, maxHeight: 9 * u)
-                            .padding(0.8 * u).background(Color.white.opacity(0.92)).clipShape(RoundedRectangle(cornerRadius: 0.8 * u))
+                        Image(uiImage: lg).resizable().scaledToFit()
+                            .frame(width: LogoImage.displaySize(lg, unit: u).width, height: LogoImage.displaySize(lg, unit: u).height)
                         VStack(alignment: .leading, spacing: 1) {
                             if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
                             if let a = L.address { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
@@ -201,59 +191,6 @@ struct NoteView: View {
     }
 }
 
-struct GalleryView: View {
-    @Environment(\.dismiss) private var dismiss
-    let model: CameraModel
-    @State private var recs = CameraModel.loadRecs()
-    @State private var sel = Set<String>()
-    @State private var last: PhotoRec?
-    @State private var items: [Any] = []
-    @State private var showShare = false
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                if recs.isEmpty { Text("Chưa có ảnh nào. Hãy chụp trước.").foregroundColor(.secondary).padding(40) }
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-                    ForEach(recs) { r in
-                        Thumb(file: r.file, video: r.video == true).aspectRatio(1, contentMode: .fit)
-                            .overlay(alignment: .bottomLeading) {
-                                if r.video == true { Image(systemName: "play.circle.fill").font(.system(size: 22)).foregroundColor(.white).shadow(radius: 2).padding(6) }
-                            }
-                            .overlay(alignment: .topTrailing) {
-                                if sel.contains(r.id) {
-                                    Image(systemName: "checkmark.circle.fill").font(.system(size: 24)).foregroundColor(Color(red: 1, green: 0.42, blue: 0.10))
-                                        .background(Circle().fill(Color.white)).padding(6)
-                                }
-                            }
-                            .onTapGesture { if sel.contains(r.id) { sel.remove(r.id) } else { sel.insert(r.id) }; last = r }
-                    }
-                }
-            }
-            .navigationTitle("Ảnh & video (\(sel.count)/\(recs.count))")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Đóng") { dismiss() } } }
-            .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 10) {
-                    Button("Cùng vị trí") {
-                        guard let ref = last else { return }
-                        recs.filter { $0.id == ref.id || CameraModel.near(ref, $0) }.forEach { sel.insert($0.id) }
-                    }
-                    Button(sel.count == recs.count ? "Bỏ chọn" : "Tất cả") { sel = sel.count == recs.count ? [] : Set(recs.map { $0.id }) }
-                    Button("📤 Chia sẻ (\(sel.count))") { share() }.disabled(sel.isEmpty).buttonStyle(.borderedProminent).tint(Color(red: 1, green: 0.42, blue: 0.10))
-                }.buttonStyle(.bordered).padding().background(.bar)
-            }
-        }
-        .sheet(isPresented: $showShare) { ShareSheet(items: items) }
-    }
-    private func share() {
-        let chosen = recs.filter { sel.contains($0.id) }
-        let text = model.batchText(chosen)
-        UIPasteboard.general.string = text
-        items = chosen.map { CameraModel.photosDir.appendingPathComponent($0.file) as Any }
-        if !text.isEmpty { items.append(text) }
-        showShare = true
-    }
-}
 struct Thumb: View {
     let file: String
     var video = false
@@ -321,9 +258,9 @@ struct SettingsView: View {
                     guard let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) else { return }
                     let s = min(1, 1024 / max(img.size.width, img.size.height))
                     let size = CGSize(width: img.size.width * s, height: img.size.height * s)
-                    let f = UIGraphicsImageRendererFormat(); f.scale = 1
+                    let f = UIGraphicsImageRendererFormat(); f.scale = 1; f.opaque = false
                     let small = UIGraphicsImageRenderer(size: size, format: f).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
-                    try? small.pngData()?.write(to: CameraModel.logoURL)
+                    try? small.trimmingTransparentMargins().pngData()?.write(to: CameraModel.logoURL)
                 }
             }
         }

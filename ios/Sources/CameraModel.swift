@@ -60,16 +60,12 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     @Published var isRecording = false
     @Published var recSeconds = 0
     @Published var recOrient: UIDeviceOrientation = .portrait
-    @Published var shareItems: [Any] = []
     var uiOrient: UIDeviceOrientation { isRecording ? recOrient : devOrient }
     var previewAspect: CGFloat = 3.0 / 4.0
     @Published var loc: CLLocation?
     @Published var heading: Double?
     @Published var autoAddr = ""
     @Published var devOrient: UIDeviceOrientation = .portrait
-    @Published var lastImage: UIImage?
-    @Published var lastText = ""
-    @Published var showShareHint = false
 
     private let dirs = ["B", "ĐB", "Đ", "ĐN", "N", "TN", "T", "TB"]
     func str(_ k: String) -> String { UserDefaults.standard.string(forKey: k) ?? "" }
@@ -254,11 +250,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 r.location = l
             }
         }
-        let text = shareText(d, l)
-        DispatchQueue.main.async {
-            self.lastText = text; self.shareItems = [dst]; if !text.isEmpty { self.shareItems.append(text) }; self.showShareHint = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { self.showShareHint = false }
-        }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
@@ -273,11 +264,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             L.rows.append("Mã xác thực: " + self.code(d, l))
             let out = self.stamp(base, L)
             if let jpg = self.jpeg(out, l) { self.save(jpg, d, l) }
-            let text = self.shareText(d, l)
-            DispatchQueue.main.async {
-                self.lastImage = out; self.lastText = text; self.shareItems = [out]; if !text.isEmpty { self.shareItems.append(text) }; self.showShareHint = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 12) { self.showShareHint = false }
-            }
         }
     }
     private func jpeg(_ img: UIImage, _ l: CLLocation?) -> Data? {
@@ -405,9 +391,9 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 }
                 c.restoreGState()
             }
-            let lg: UIImage? = flag("logoOn") ? UIImage(contentsOfFile: CameraModel.logoURL.path) : nil
+            let lg: UIImage? = flag("logoOn") ? LogoImage.load() : nil
             var lw: CGFloat = 0, lh: CGFloat = 0
-            let pad = u * 0.8
+            let pad: CGFloat = 0
             if let lg = lg {
                 lh = u * 9; lw = lg.size.width * lh / lg.size.height
                 if lw > u * 24 { lw = u * 24; lh = lw * lg.size.height / lg.size.width }
@@ -472,7 +458,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             if let lg = lg {
                 let bx = rect.minX + bar + p
                 let r = CGRect(x: bx, y: yy, width: badgeW, height: lh + 2 * pad)
-                UIColor(white: 1, alpha: 0.92).setFill(); UIBezierPath(roundedRect: r, cornerRadius: u * 0.8).fill()
                 lg.draw(in: r.insetBy(dx: pad, dy: pad))
                 if sideStr.length > 0 {
                     sideStr.draw(with: CGRect(x: bx + badgeW + gap, y: yy, width: sw, height: headH), options: [.usesLineFragmentOrigin], context: nil)

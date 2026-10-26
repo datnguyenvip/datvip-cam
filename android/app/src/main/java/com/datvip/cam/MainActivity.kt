@@ -133,10 +133,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private lateinit var panelLogo: ImageView
     private lateinit var sideTv: TextView
     private lateinit var panel: LinearLayout
-    private lateinit var shareBtn: TextView
     private var lastShare = ""
     private var lastName = ""
-    private var hideRun: Runnable? = null
     private lateinit var logoIv: ImageView
     private var logoBmp: Bitmap? = null
     private var pxUnit = 4f
@@ -222,7 +220,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         ov = TextView(this).apply { setTextColor(Color.WHITE); setShadowLayer(dp(1).toFloat(), 0f, 1f, Color.BLACK); setPadding(dp(10), dp(8), dp(12), dp(8)) }
         panelLogo = ImageView(this).apply {
             visibility = View.GONE; scaleType = ImageView.ScaleType.FIT_CENTER
-            background = GradientDrawable().apply { setColor(0xEBFFFFFF.toInt()); cornerRadius = dp(4).toFloat() }
+            background = null
         }
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         sideTv = TextView(this).apply { setTextColor(Color.WHITE); setShadowLayer(dp(1).toFloat(), 0f, 1f, Color.BLACK); typeface = Typeface.DEFAULT_BOLD; visibility = View.GONE; setPadding(dp(8), dp(6), dp(12), 0) }
@@ -254,13 +252,6 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         }
         setGpsPill(false, "Đang định vị…")
         stage.addView(gpsTv, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(10), dp(12), 0, 0) })
-        shareBtn = TextView(this).apply {
-            text = "📤 Chia sẻ + vị trí"; setTextColor(Color.WHITE); textSize = 14f; typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(14), dp(10), dp(14), dp(10)); visibility = View.GONE
-            background = GradientDrawable().apply { setColor(0xFFFF6B1A.toInt()); cornerRadius = dp(22).toFloat() }
-            setOnClickListener { shareLast() }
-        }
-        stage.addView(shareBtn, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(10), 0) })
         fun mini(t: String, f: () -> Unit) = TextView(this).apply {
             text = t; textSize = 18f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x99000000.toInt()) }
@@ -400,7 +391,6 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         videoFrames.clear(); lastVideoSecond = -1
         addVideoFrame(0)
         capture.targetRotation = lastRot
-        shareBtn.visibility = View.GONE
         recordPending = true; updateVideoUi()
         try {
             val pending = capture.output.prepareRecording(this, FileOutputOptions.Builder(raw).build())
@@ -484,7 +474,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 data
             } else JSONObject(metadata.readText())
         } catch (e: Exception) { fail(e.localizedMessage ?: "Không lưu được bản quay tạm"); return }
-        val frozenLogo = BitmapFactory.decodeFile(logoFile.path)
+        val frozenLogo = BitmapFactory.decodeFile(logoFile.path)?.let { trimLogo(it) }
         val frozenWatermark = job.optString("watermark")
         val frozenBackground = job.optInt("background", StampSettings.background(sp))
         videoExporter.start(this, raw, output, landscape, frames, { bitmap, line -> stamp(bitmap, line, frozenWatermark, frozenLogo, frozenBackground) }, {
@@ -509,7 +499,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                     runOnUiThread {
                         videoProcessing = false
                         lastName = name; lastUri = destination; lastMime = "video/mp4"; lastShare = mapLinksOnly(job.optString("share"))
-                        updateVideoUi(); shareBtn.visibility = View.VISIBLE
+                        updateVideoUi()
                         toast("Đã lưu video: Movies/DatvipCam")
                     }
                 } catch (e: Exception) {
@@ -597,12 +587,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         lastName = name
         lastUri = uri
         lastMime = "image/jpeg"
+        gl?.let { sp.edit().putString("gps_$name", "${it.latitude},${it.longitude}").apply() }
         lastShare = shareText(d, loc)
-        runOnUiThread {
-            shareBtn.visibility = View.VISIBLE
-            hideRun?.let { ui.removeCallbacks(it) }
-            val r = Runnable { shareBtn.visibility = View.GONE }; hideRun = r; ui.postDelayed(r, 12000)
-        }
         toast("Đã lưu: Pictures/DatvipCam")
     }
 
@@ -689,7 +675,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             while (y < dd) { var x = -dd + if (row % 2 == 1) tw / 2 else 0f; while (x < dd) { c.drawText(watermark, x, y, tp); x += tw }; y += sp2; row++ }
             c.restore(); tp.textAlign = Paint.Align.LEFT
         }
-        var lw = 0f; var lh = 0f; val pad = u * .8f
+        var lw = 0f; var lh = 0f; val pad = 0f
         if (lg != null) { lh = u * 9f; lw = lg.width * lh / lg.height; if (lw > u * 24f) { lw = u * 24f; lh = lw * lg.height / lg.width } }
         val side = if (lg != null) L.rows.filter { it.startsWith("Nhiệm vụ:") || it.startsWith("\u200C") } else emptyList()
         val rest = L.rows.filter { it !in side }
@@ -736,7 +722,6 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (lg != null) {
             val bx = x0 + bar + p
             val r = RectF(bx, yy, bx + badgeW, yy + lh + 2 * pad)
-            c.drawRoundRect(r, u * .8f, u * .8f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xEBFFFFFF.toInt() })
             c.drawBitmap(lg, null, RectF(r.left + pad, r.top + pad, r.right - pad, r.bottom - pad), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
             sideLayout?.let { sl -> c.save(); c.translate(bx + badgeW + gap, yy); sl.draw(c); c.restore() }
             yy += headH
@@ -904,26 +889,17 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     private fun shareText(d: Date, l: Location?): String =
         l?.let { directionsLink(it.latitude, it.longitude) } ?: ""
-    private fun sharableUri(): Uri? {
-        val src = lastUri ?: return null
-        return try {
-            val dir = File(cacheDir, "share").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
-            val f = File(dir, lastName.ifEmpty { "datvipcam.jpg" })
-            contentResolver.openInputStream(src)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-            FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
-        } catch (e: Exception) { null }
+
+    private fun trimLogo(bitmap: Bitmap): Bitmap {
+        if (!bitmap.hasAlpha()) return bitmap
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val bounds = LogoAlphaBounds.find(bitmap.width, bitmap.height, pixels) ?: return bitmap
+        if (bounds[0] == 0 && bounds[1] == 0 && bounds[2] == bitmap.width && bounds[3] == bitmap.height) return bitmap
+        return Bitmap.createBitmap(bitmap, bounds[0], bounds[1], bounds[2], bounds[3])
     }
-    private fun shareLast() {
-        val u = sharableUri() ?: run { toast("Chưa có ảnh hoặc video để chia sẻ"); return }
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("datvip", lastShare))
-        val i = Intent(Intent.ACTION_SEND).apply {
-            type = lastMime; putExtra(Intent.EXTRA_STREAM, u); if (lastShare.isNotEmpty()) putExtra(Intent.EXTRA_TEXT, lastShare)
-            clipData = ClipData.newRawUri("", u); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        toast(if (lastShare.isEmpty()) "Chưa có GPS: chỉ chia sẻ tệp" else "Đã chép link chỉ đường. Nếu app không hiện link, hãy dán vào")
-        startActivity(Intent.createChooser(i, "Chia sẻ + vị trí"))
-    }
-    private fun loadLogo() { val f = File(filesDir, "logo.png"); logoBmp = if (f.exists()) BitmapFactory.decodeFile(f.path) else null }
+
+    private fun loadLogo() { val f = File(filesDir, "logo.png"); logoBmp = if (f.exists()) BitmapFactory.decodeFile(f.path)?.let { trimLogo(it) } else null }
     private fun saveLogo(uri: Uri) {
         try {
             val opt = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -931,7 +907,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             var ss = 1; while (maxOf(opt.outWidth, opt.outHeight) / ss > 1024) ss *= 2
             val o2 = BitmapFactory.Options().apply { inSampleSize = ss }
             val bm = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o2) } ?: throw Exception("decode")
-            File(filesDir, "logo.png").outputStream().use { bm.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            File(filesDir, "logo.png").outputStream().use { trimLogo(bm).compress(Bitmap.CompressFormat.PNG, 100, it) }
             loadLogo(); refresh(); toast("Đã đặt logo")
         } catch (e: Exception) { toast("Không đọc được ảnh logo") }
     }
@@ -940,7 +916,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (lg == null || !b("logoOn")) { panelLogo.visibility = View.GONE; return }
         val u = pxUnit; var h = u * 9f; var w = lg.width * h / lg.height
         if (w > u * 24f) { w = u * 24f; h = w * lg.height / lg.width }
-        val pad = (u * .8f).toInt(); val nw = w.toInt() + 2 * pad; val nh = h.toInt() + 2 * pad
+        val pad = 0; val nw = maxOf(1, w.toInt()); val nh = maxOf(1, h.toInt())
         val lp = panelLogo.layoutParams as LinearLayout.LayoutParams
         if (lp.width != nw || lp.height != nh) { lp.width = nw; lp.height = nh; panelLogo.layoutParams = lp; panelLogo.setPadding(pad, pad, pad, pad) }
         if (panelLogo.tag !== lg) { panelLogo.setImageBitmap(lg); panelLogo.tag = lg }
@@ -1041,76 +1017,127 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val r = FloatArray(1); Location.distanceBetween(la, oa, lb, ob, r); return r[0] < 100f
     }
     private fun openGallery() {
-        val items = ArrayList<Item>()
-        val col = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(col, arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DATE_ADDED),
-            MediaStore.Images.Media.RELATIVE_PATH + " LIKE ?", arrayOf("%DatvipCam%"), MediaStore.Images.Media.DATE_ADDED + " DESC")?.use { c ->
-            while (c.moveToNext()) items.add(Item(ContentUris.withAppendedId(col, c.getLong(0)), c.getLong(1) * 1000))
+        val dialog = Dialog(this, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen)
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE); setPadding(0, dp(24), 0, 0) }
+        val toolbar = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(8), 0) }
+        toolbar.addView(Button(this).apply { text = "‹"; contentDescription = "Đóng"; setOnClickListener { dialog.dismiss() } }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        toolbar.addView(TextView(this).apply { text = "Xuất & Chia sẻ"; setTextColor(Color.BLACK); textSize = 18f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
+        val menu = Button(this).apply { text = "⋮"; contentDescription = "Chọn ảnh/video"; isEnabled = false }
+        toolbar.addView(menu, LinearLayout.LayoutParams(dp(52), dp(52))); root.addView(toolbar)
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val status = TextView(this).apply { text = "Đang tải ảnh/video và vị trí…"; setTextColor(Color.DKGRAY); setPadding(dp(16), dp(16), dp(16), dp(16)) }
+        content.addView(status)
+        root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        val footer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(18)); setBackgroundColor(0xFFF2F5FA.toInt()) }
+        val summary = TextView(this).apply { textSize = 17f; setTextColor(Color.BLACK); typeface = Typeface.DEFAULT_BOLD }
+        val hint = TextView(this).apply { textSize = 12f; setTextColor(Color.DKGRAY); setPadding(0, dp(6), 0, dp(8)) }
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val share = Button(this).apply { text = "Chia sẻ"; setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_share, 0, 0); isEnabled = false }
+        val maps = Button(this).apply { text = "Liên kết Maps"; setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_mylocation, 0, 0); isEnabled = false }
+        actions.addView(share, LinearLayout.LayoutParams(0, -2, 1f)); actions.addView(maps, LinearLayout.LayoutParams(0, -2, 1f))
+        footer.addView(summary); footer.addView(hint); footer.addView(actions); root.addView(footer)
+        val items = ArrayList<Item>(); val checks = HashMap<Item, TextView>(); val dayButtons = ArrayList<Pair<List<Item>, Button>>()
+        var last: Item? = null; var preparing = false
+        fun update() {
+            val selected = items.filter { it.sel }
+            val text = batchText(selected)
+            summary.text = "${selected.size} ảnh/video đã chọn"
+            hint.text = when {
+                preparing -> "Đang chuẩn bị tệp…"
+                selected.isEmpty() -> "Chọn ảnh/video để chia sẻ hoặc lấy link Maps"
+                text.isEmpty() -> "Tệp đã chọn không có vị trí GPS"
+                else -> "Kèm link Maps và chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video"
+            }
+            share.isEnabled = selected.isNotEmpty() && !preparing; maps.isEnabled = text.isNotEmpty() && !preparing
+            checks.forEach { (item, label) -> label.text = if (item.sel) "✓" else "○"; label.setBackgroundColor(if (item.sel) 0xFF0099F0.toInt() else 0x66000000) }
+            dayButtons.forEach { (group, button) -> button.isSelected = group.all { it.sel }; button.setCompoundDrawablesWithIntrinsicBounds(0, 0, if (button.isSelected) android.R.drawable.checkbox_on_background else android.R.drawable.checkbox_off_background, 0) }
         }
-        val videos = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(videos, arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DATE_ADDED, MediaStore.Video.Media.DISPLAY_NAME),
-            MediaStore.Video.Media.RELATIVE_PATH + " LIKE ? AND " + MediaStore.Video.Media.IS_PENDING + " = 0",
-            arrayOf("%DatvipCam%"), MediaStore.Video.Media.DATE_ADDED + " DESC")?.use { c ->
-            while (c.moveToNext()) {
-                val item = Item(ContentUris.withAppendedId(videos, c.getLong(0)), c.getLong(1) * 1000, true)
-                val gps = s("gps_${c.getString(2)}").split(',')
-                if (gps.size == 2) { item.lat = gps[0].toDoubleOrNull(); item.lon = gps[1].toDoubleOrNull() }
-                items.add(item)
+        share.setOnClickListener {
+            if (!preparing) {
+                preparing = true; update()
+                shareBatch(items.filter { it.sel }.toList()) { preparing = false; if (dialog.isShowing) update() }
             }
         }
-        items.sortByDescending { it.time }
-        val dlg = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFF0B141B.toInt()); setPadding(0, dp(28), 0, 0) }
-        val title = TextView(this).apply { setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(dp(8), dp(6), dp(8), dp(6)) }
-        val checks = ArrayList<TextView>(); val imgs = ArrayList<ImageView>(); var lastTap = -1
-        fun upd() { title.text = "Ảnh & video (${items.count { it.sel }}/${items.size})"; checks.forEachIndexed { i, t -> t.visibility = if (items[i].sel) View.VISIBLE else View.GONE } }
-        fun pill(t: String, f: () -> Unit) = TextView(this).apply {
-            text = t; setTextColor(Color.WHITE); textSize = 13f; setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = GradientDrawable().apply { setColor(0xFF1B2B36.toInt()); cornerRadius = dp(18).toFloat() }; setOnClickListener { f() }
+        maps.setOnClickListener { showMapsLinks(batchText(items.filter { it.sel })) }
+        menu.setOnClickListener {
+            AlertDialog.Builder(this).setItems(arrayOf(if (items.all { it.sel }) "Bỏ chọn tất cả" else "Chọn tất cả", "Chọn cùng vị trí")) { _, action ->
+                if (action == 0) { val all = items.all { it.sel }; items.forEach { it.sel = !all } }
+                else last?.let { ref -> items.forEach { if (it === ref || nearBy(ref, it)) it.sel = true } } ?: toast("Chọn một ảnh/video trước")
+                update()
+            }.show()
         }
-        val gap = { LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(6) } }
-        val bar = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(8), dp(8)) }
-        bar.addView(pill("✕") { dlg.dismiss() })
-        bar.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        bar.addView(pill("Cùng vị trí") {
-            if (lastTap < 0) toast("Chạm vào một ảnh trước") else { val ref = items[lastTap]; items.forEach { if (it === ref || nearBy(ref, it)) it.sel = true }; upd() }
-        }, gap())
-        bar.addView(pill("Tất cả") { val all = items.all { it.sel }; items.forEach { it.sel = !all }; upd() }, gap())
-        bar.addView(pill("📤 Chia sẻ") { shareBatch(items.filter { it.sel }) }, gap())
-        root.addView(bar)
-        val size = resources.displayMetrics.widthPixels / 3
-        val grid = GridLayout(this).apply { columnCount = 3 }
-        items.forEachIndexed { i, m ->
-            val cell = FrameLayout(this)
-            val iv = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(0xFF182228.toInt()) }
-            val ck = TextView(this).apply {
-                text = "✓"; setTextColor(Color.WHITE); gravity = Gravity.CENTER; textSize = 16f; visibility = View.GONE
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFFF6B1A.toInt()) }
-            }
-            cell.addView(iv, FrameLayout.LayoutParams(-1, -1).apply { setMargins(1, 1, 1, 1) })
-            if (m.video) cell.addView(TextView(this).apply {
-                text = "▶"; textSize = 24f; setTextColor(Color.WHITE); setShadowLayer(4f, 1f, 1f, Color.BLACK)
-            }, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(8), 0, 0, dp(8)) })
-            cell.addView(ck, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.END or Gravity.TOP).apply { setMargins(0, dp(6), dp(6), 0) })
-            cell.setOnClickListener { m.sel = !m.sel; lastTap = i; upd() }
-            cell.setOnLongClickListener {
-                try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(m.uri, if (m.video) "video/mp4" else "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
-                catch (e: Exception) { toast("Không có ứng dụng mở tệp này") }; true
-            }
-            imgs.add(iv); checks.add(ck)
-            grid.addView(cell, GridLayout.LayoutParams().apply { width = size; height = size })
-        }
-        root.addView(ScrollView(this).apply { addView(grid) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        dialog.setContentView(root); dialog.show(); update()
         thread {
-            items.forEachIndexed { i, m ->
-                val bm = try { contentResolver.loadThumbnail(m.uri, Size(300, 300), null) } catch (e: Exception) { null }
-                if (!m.video) try { contentResolver.openInputStream(m.uri)?.use { ins -> ExifInterface(ins).latLong?.let { m.lat = it[0]; m.lon = it[1] } } } catch (e: Exception) {}
-                runOnUiThread { if (bm != null) imgs[i].setImageBitmap(bm) }
+            try {
+                fun readMedia(collection: Uri, video: Boolean) {
+                    contentResolver.query(collection, arrayOf("_id", "date_added", "_display_name"),
+                        "relative_path LIKE ? AND is_pending = 0", arrayOf("%DatvipCam%"), "date_added DESC")?.use { cursor ->
+                        while (cursor.moveToNext()) {
+                            val item = Item(ContentUris.withAppendedId(collection, cursor.getLong(0)), cursor.getLong(1) * 1000, video)
+                            val coordinates = s("gps_${cursor.getString(2)}").split(',')
+                            if (coordinates.size == 2) { item.lat = coordinates[0].toDoubleOrNull(); item.lon = coordinates[1].toDoubleOrNull() }
+                            if (!video && item.lat == null) try { contentResolver.openInputStream(item.uri)?.use { input -> ExifInterface(input).latLong?.let { item.lat = it[0]; item.lon = it[1] } } } catch (_: Exception) {}
+                            items.add(item)
+                        }
+                    }
+                }
+                readMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, false)
+                readMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true)
+                items.sortByDescending { it.time }
+                runOnUiThread {
+                    if (!dialog.isShowing || destroying) return@runOnUiThread
+                    content.removeAllViews(); menu.isEnabled = items.isNotEmpty()
+                    if (items.isEmpty()) content.addView(TextView(this).apply { text = "Chưa có ảnh/video. Hãy chụp hoặc quay trước."; setTextColor(Color.DKGRAY); setPadding(dp(16), dp(24), dp(16), dp(24)) })
+                    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    val today = format.format(Date()); val yesterday = format.format(Date(System.currentTimeMillis() - 86400000))
+                    val thumbnails = HashMap<Item, ImageView>()
+                    items.groupBy { format.format(Date(it.time)) }.forEach { (date, group) ->
+                        val label = when (date) { today -> "Hôm nay"; yesterday -> "Hôm qua"; else -> SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date(group.first().time)) }
+                        val day = Button(this).apply { text = "$label (${group.size})"; gravity = Gravity.START or Gravity.CENTER_VERTICAL; setTextColor(Color.BLACK)
+                            setOnClickListener { val all = group.all { it.sel }; group.forEach { it.sel = !all }; update() } }
+                        dayButtons.add(group to day); content.addView(day, LinearLayout.LayoutParams(-1, -2))
+                        val grid = GridLayout(this).apply { columnCount = 3 }
+                        val size = resources.displayMetrics.widthPixels / 3
+                        group.forEach { item ->
+                            val cell = FrameLayout(this)
+                            val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(0xFFE0E5EB.toInt()) }
+                            thumbnails[item] = image; cell.addView(image, FrameLayout.LayoutParams(-1, -1).apply { setMargins(1, 1, 1, 1) })
+                            val check = TextView(this).apply { textSize = 20f; gravity = Gravity.CENTER; setTextColor(Color.WHITE) }
+                            checks[item] = check; cell.addView(check, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.END or Gravity.TOP).apply { setMargins(0, dp(5), dp(5), 0) })
+                            if (item.video) cell.addView(TextView(this).apply { text = "▶"; textSize = 24f; setTextColor(Color.WHITE); setShadowLayer(3f, 0f, 1f, Color.BLACK) }, FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.BOTTOM).apply { setMargins(dp(6), 0, 0, dp(6)) })
+                            cell.contentDescription = if (item.video) "Chọn video" else "Chọn ảnh"
+                            cell.setOnClickListener { item.sel = !item.sel; last = item; update() }
+                            cell.setOnLongClickListener {
+                                try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri, if (item.video) "video/mp4" else "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+                                catch (_: Exception) { toast("Không có ứng dụng mở tệp này") }; true
+                            }
+                            grid.addView(cell, GridLayout.LayoutParams().apply { width = size; height = size })
+                        }
+                        content.addView(grid)
+                    }
+                    update()
+                    thread {
+                        items.forEach { item ->
+                            val bitmap = try { contentResolver.loadThumbnail(item.uri, Size(300, 300), null) } catch (_: Exception) { null }
+                            runOnUiThread { if (dialog.isShowing && bitmap != null) thumbnails[item]?.setImageBitmap(bitmap) }
+                        }
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread { if (dialog.isShowing) status.text = "Không đọc được thư viện: ${error.message}" }
             }
         }
-        dlg.setContentView(root); dlg.show(); upd()
-        if (items.isEmpty()) toast("Chưa có ảnh hoặc video nào")
     }
+
+    private fun showMapsLinks(text: String) {
+        if (text.isBlank()) { toast("Tệp đã chọn không có vị trí GPS"); return }
+        val linkView = TextView(this).apply { this.text = text; setTextIsSelectable(true); setPadding(dp(20), dp(16), dp(20), dp(16)) }
+        AlertDialog.Builder(this).setTitle("Liên kết Maps").setView(ScrollView(this).apply { addView(linkView) })
+            .setPositiveButton("Sao chép") { _, _ -> getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Google Maps", text)); toast("Đã chép link Maps") }
+            .setNeutralButton("Chia sẻ link") { _, _ -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, "Chia sẻ link Maps")) }
+            .setNegativeButton("Đóng", null).show()
+    }
+
     private fun batchText(sel: List<Item>): String {
         val groups = ArrayList<MutableList<Item>>()
         for (item in sel) {
@@ -1122,33 +1149,40 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             if (lat != null && lon != null) directionsLink(lat, lon) else null
         }.distinct().joinToString("\n")
     }
-    private fun shareBatch(sel: List<Item>) {
-        if (sel.isEmpty()) { toast("Hãy chọn ít nhất một ảnh hoặc video"); return }
-        val txt = batchText(sel)
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("datvip", txt))
-        toast("Đang chuẩn bị ${sel.size} tệp…")
+    private fun shareBatch(selected: List<Item>, finished: () -> Unit = {}) {
+        if (selected.isEmpty()) { finished(); toast("Hãy chọn ảnh/video trước"); return }
+        val selection = selected.toList()
+        val text = batchText(selection)
         thread {
             try {
-                val dir = File(cacheDir, "share").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+                val directory = File(cacheDir, "share/${UUID.randomUUID()}")
+                check(directory.mkdirs()) { "Không tạo được thư mục chia sẻ" }
                 val uris = ArrayList<Uri>()
-                sel.forEachIndexed { i, m ->
-                    val f = File(dir, "DatvipCam_${i + 1}_${m.time}." + if (m.video) "mp4" else "jpg")
-                    contentResolver.openInputStream(m.uri)?.use { ins -> f.outputStream().use { o -> ins.copyTo(o) } }
-                    uris.add(FileProvider.getUriForFile(this, "$packageName.fileprovider", f))
+                selection.forEachIndexed { index, item ->
+                    val file = File(directory, "DatvipCam_${index + 1}_${item.time}." + if (item.video) "mp4" else "jpg")
+                    val stream = contentResolver.openInputStream(item.uri) ?: error("Không mở được một tệp đã chọn")
+                    stream.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+                    check(file.length() > 0) { "Một tệp đã chọn không có dữ liệu" }
+                    uris.add(FileProvider.getUriForFile(this, "$packageName.fileprovider", file))
                 }
-                val it2 = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                    type = if (sel.all { it.video }) "video/*" else if (sel.none { it.video }) "image/*" else "*/*"
-                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris); if (txt.isNotEmpty()) putExtra(Intent.EXTRA_TEXT, txt)
-                    val cd = ClipData.newRawUri("", uris[0]); uris.drop(1).forEach { u -> cd.addItem(ClipData.Item(u)) }; clipData = cd
+                val intent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = if (selection.all { it.video }) "video/mp4" else if (selection.none { it.video }) "image/jpeg" else "*/*"
+                    if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris[0]) else putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    if (text.isNotEmpty()) putExtra(Intent.EXTRA_TEXT, text)
+                    clipData = ClipData.newRawUri("", uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 runOnUiThread {
-                    toast(if (txt.isEmpty()) "Không có GPS: chỉ chia sẻ tệp" else "Đã chép link chỉ đường. Nếu Zalo không hiện link, hãy dán vào")
-                    startActivity(Intent.createChooser(it2, "Chia sẻ hàng loạt"))
+                    finished()
+                    if (destroying) return@runOnUiThread
+                    getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Google Maps", text))
+                    try { startActivity(Intent.createChooser(intent, "Chia sẻ ảnh/video")) }
+                    catch (error: Exception) { toast("Không mở được chia sẻ: ${error.message}") }
                 }
-            } catch (e: Exception) { toast("Không chia sẻ được: ${e.message}") }
+            } catch (error: Exception) { runOnUiThread { finished(); toast("Không chuẩn bị được tệp: ${error.message}") } }
         }
     }
+
     private fun openLast() {
         val u = lastUri
         val i = if (u != null) Intent(Intent.ACTION_VIEW).setDataAndType(u, lastMime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
