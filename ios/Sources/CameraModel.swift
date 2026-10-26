@@ -29,6 +29,7 @@ extension UIImage {
 
 final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, AVCapturePhotoCaptureDelegate,
                          AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
+    private let shutterFeedback = ShutterFeedback()
     let session = AVCaptureSession()
     private let output = AVCapturePhotoOutput()
     private let lm = CLLocationManager()
@@ -59,16 +60,12 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     @Published var isRecording = false
     @Published var recSeconds = 0
     @Published var recOrient: UIDeviceOrientation = .portrait
-    @Published var shareItems: [Any] = []
     var uiOrient: UIDeviceOrientation { isRecording ? recOrient : devOrient }
     var previewAspect: CGFloat = 3.0 / 4.0
     @Published var loc: CLLocation?
     @Published var heading: Double?
     @Published var autoAddr = ""
     @Published var devOrient: UIDeviceOrientation = .portrait
-    @Published var lastImage: UIImage?
-    @Published var lastText = ""
-    @Published var showShareHint = false
 
     private let dirs = ["B", "ĐB", "Đ", "ĐN", "N", "TN", "T", "TB"]
     func str(_ k: String) -> String { UserDefaults.standard.string(forKey: k) ?? "" }
@@ -253,15 +250,11 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 r.location = l
             }
         }
-        let text = shareText(d, l)
-        DispatchQueue.main.async {
-            self.lastText = text; self.shareItems = [dst, text]; self.showShareHint = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { self.showShareHint = false }
-        }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard let data = photo.fileDataRepresentation(), let img = UIImage(data: data) else { return }
+        guard error == nil, let data = photo.fileDataRepresentation(), let img = UIImage(data: data) else { return }
+        DispatchQueue.main.async { self.shutterFeedback.play() }
         let d = Date(), l = loc
         let land = shotOrient == .landscapeLeft || shotOrient == .landscapeRight
         let aspect = land ? 1 / previewAspect : previewAspect
@@ -271,11 +264,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             L.rows.append("Mã xác thực: " + self.code(d, l))
             let out = self.stamp(base, L)
             if let jpg = self.jpeg(out, l) { self.save(jpg, d, l) }
-            let text = self.shareText(d, l)
-            DispatchQueue.main.async {
-                self.lastImage = out; self.lastText = text; self.shareItems = [out, text]; self.showShareHint = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 12) { self.showShareHint = false }
-            }
         }
     }
     private func jpeg(_ img: UIImage, _ l: CLLocation?) -> Data? {
@@ -350,35 +338,18 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         return SHA256.hash(data: Data(raw.utf8)).prefix(4).map { String(format: "%02X", $0) }.joined()
     }
     func shareText(_ d: Date, _ l: CLLocation?) -> String {
-        var s = ""
-        if !str("proj").isEmpty { s += "Nhiệm vụ: " + str("proj") + "\n" }
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss dd/MM/yyyy"
-        s += "🕒 " + f.string(from: d) + "\n"
-        let addr = str("addr").isEmpty ? autoAddr : str("addr")
-        if !addr.isEmpty { s += "🏠 " + addr + "\n" }
-        if let l = l { s += String(format: "📍 %.6f,%.6f", l.coordinate.latitude, l.coordinate.longitude) + "\n🧭 Chỉ đường: " + dirLink(l) + "\n" }
-        if !str("note").isEmpty { s += "Ghi chú: " + str("note") }
-        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+        l.map { dirLink($0) } ?? ""
     }
     /// Lời nhắn cho nhiều ảnh: gom các ảnh cùng vị trí (≤100 m) và gắn một link Google Maps cho mỗi nhóm
     func batchText(_ recs: [PhotoRec]) -> String {
-        var s = ""
-        if !str("proj").isEmpty { s += "Nhiệm vụ: " + str("proj") + "\n" }
-        let f = DateFormatter(); f.dateFormat = "HH:mm dd/MM/yyyy"
-        let nv = recs.filter { $0.video == true }.count
-        if let first = recs.map({ $0.time }).min() { s += "🖼 \(recs.count - nv) ảnh" + (nv > 0 ? ", 🎬 \(nv) video" : "") + " · " + f.string(from: first) + "\n" }
         var groups: [[PhotoRec]] = []
         for r in recs {
             if let i = groups.firstIndex(where: { CameraModel.near($0[0], r) }) { groups[i].append(r) } else { groups.append([r]) }
         }
-        for (i, g) in groups.enumerated() {
-            guard let la = g[0].lat, let lo = g[0].lon else { continue }
-            let c = String(format: "%.6f,%.6f", la, lo)
-            s += (groups.count > 1 ? "📍 Vị trí \(i + 1) (\(g.count) ảnh): " : "📍 ") + c
-            s += "\n🧭 Chỉ đường: https://www.google.com/maps/dir/?api=1&destination=" + c + "&travelmode=driving\n"
-        }
-        if !str("note").isEmpty { s += "Ghi chú: " + str("note") }
-        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return groups.compactMap { group -> String? in
+            guard let la = group[0].lat, let lo = group[0].lon else { return nil }
+            return dirLink(CLLocation(latitude: la, longitude: lo))
+        }.joined(separator: "\n")
     }
     static func near(_ a: PhotoRec, _ b: PhotoRec) -> Bool {
         guard let la = a.lat, let lo = a.lon, let lb = b.lat, let ob = b.lon else { return false }
@@ -420,9 +391,9 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 }
                 c.restoreGState()
             }
-            let lg: UIImage? = flag("logoOn") ? UIImage(contentsOfFile: CameraModel.logoURL.path) : nil
+            let lg: UIImage? = flag("logoOn") ? LogoImage.load() : nil
             var lw: CGFloat = 0, lh: CGFloat = 0
-            let pad = u * 0.8
+            let pad: CGFloat = 0
             if let lg = lg {
                 lh = u * 9; lw = lg.size.width * lh / lg.size.height
                 if lw > u * 24 { lw = u * 24; lh = lw * lg.size.height / lg.size.width }
@@ -476,17 +447,17 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             let path = UIBezierPath(roundedRect: rect, cornerRadius: u * 1.6)
             c.saveGState()
             c.setShadow(offset: CGSize(width: 0, height: u * 0.3), blur: u * 1.2, color: UIColor(white: 0, alpha: 0.5).cgColor)
-            UIColor(red: 0.055, green: 0.10, blue: 0.14, alpha: 0.85).setFill(); path.fill()
+            StampPreferences.background.setFill(); path.fill()
             c.restoreGState()
             c.saveGState(); path.addClip()
             UIColor(red: 1, green: 0.42, blue: 0.10, alpha: 1).setFill()
             UIRectFill(CGRect(x: rect.minX, y: rect.minY, width: bar, height: bh))
             c.restoreGState()
             var yy = rect.minY + p * 0.8
+            c.setShadow(offset: CGSize(width: 0, height: u * 0.08), blur: u * 0.15, color: UIColor.black.cgColor)
             if let lg = lg {
                 let bx = rect.minX + bar + p
                 let r = CGRect(x: bx, y: yy, width: badgeW, height: lh + 2 * pad)
-                UIColor(white: 1, alpha: 0.92).setFill(); UIBezierPath(roundedRect: r, cornerRadius: u * 0.8).fill()
                 lg.draw(in: r.insetBy(dx: pad, dy: pad))
                 if sideStr.length > 0 {
                     sideStr.draw(with: CGRect(x: bx + badgeW + gap, y: yy, width: sw, height: headH), options: [.usesLineFragmentOrigin], context: nil)
