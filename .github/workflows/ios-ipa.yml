@@ -1,0 +1,29 @@
+name: Build unsigned IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/ios-ipa.yml"]
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cài XcodeGen
+        run: brew install xcodegen
+      - name: Tạo project Xcode
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build (không ký) và đóng gói IPA
+        working-directory: ios
+        run: |
+          xcodebuild -project DatvipCam.xcodeproj -scheme DatvipCam -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/DatvipCam.app Payload/
+          zip -qry DatvipCam-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DatvipCam-unsigned-ipa
+          path: ios/DatvipCam-unsigned.ipa

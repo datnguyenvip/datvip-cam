@@ -1,0 +1,10 @@
+.gradle/
+build/
+.idea/
+local.properties
+*.iml
+captures/
+ios/DatvipCam.xcodeproj/
+ios/Payload/
+ios/*.ipa
+.DS_Store

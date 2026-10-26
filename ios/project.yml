@@ -1,0 +1,29 @@
+name: DatvipCam
+options:
+  bundleIdPrefix: com.datvip
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  DatvipCam:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Datvip Cam
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: Datvip Cam cần camera để chụp ảnh.
+        NSLocationWhenInUseUsageDescription: Datvip Cam cần vị trí để đóng dấu toạ độ lên ảnh.
+        NSMicrophoneUsageDescription: Datvip Cam cần micro để ghi âm khi quay video.
+        NSPhotoLibraryAddUsageDescription: Datvip Cam cần quyền lưu ảnh vào thư viện.
