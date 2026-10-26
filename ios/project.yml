@@ -1,7 +1,7 @@
 name: DatvipCam
 options:
   bundleIdPrefix: com.datvip
-  deploymentTarget:
+  deploymentTarget:56
     iOS: "16.0"
 targets:
   DatvipCam:
