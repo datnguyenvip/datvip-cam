@@ -231,7 +231,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Thông tin") {
+                Section("Nội dung dấu") {
                     KeyField("proj", "Tên nhiệm vụ / công việc")
                     KeyField("addr", "Địa chỉ (để trống = tự lấy theo GPS)")
                     KeyField("note", "Ghi chú")
@@ -250,6 +250,9 @@ struct SettingsView: View {
                     Toggle("Hiện logo lên ảnh", isOn: $logoOn)
                     Button("Xoá logo", role: .destructive) { try? FileManager.default.removeItem(at: CameraModel.logoURL) }
                 }
+                Section("Ứng dụng") {
+                    NavigationLink("Thông tin") { AboutView() }
+                }
             }
             .navigationTitle("Cài đặt dấu ảnh")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { dismiss() } } }
@@ -264,5 +267,24 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+struct AboutView: View {
+    private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
+    var body: some View {
+        Form {
+            Section {
+                Text("Datvip Cam").font(.title2.bold())
+                Text("Phiên bản: \(version)")
+                Text("app chụp hình hiện trường thời gian thực")
+            }
+            Section("Phát triển") {
+                Text("Nguyễn Đắc Đạt")
+                Link("Email: chobanchotoi@gmail.com", destination: URL(string: "mailto:chobanchotoi@gmail.com")!)
+            }
+            Section { Text("© 2026 Nguyễn Đắc Đạt").foregroundColor(.secondary) }
+        }
+        .navigationTitle("Thông tin").navigationBarTitleDisplayMode(.inline)
     }
 }

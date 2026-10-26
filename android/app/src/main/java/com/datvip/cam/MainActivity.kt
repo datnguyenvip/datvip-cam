@@ -872,6 +872,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         row.addView(Button(this).apply { text = if (logoBmp == null) "Chọn logo" else "Đổi logo"; setOnClickListener { pickLogo.launch("image/*") } })
         row.addView(Button(this).apply { text = "Xoá logo"; setOnClickListener { File(filesDir, "logo.png").delete(); logoBmp = null; refresh(); toast("Đã xoá logo") } })
         col.addView(row)
+        col.addView(Button(this).apply { text = "Thông tin Datvip Cam"; setOnClickListener { showAppInfo() } })
         AlertDialog.Builder(this).setTitle("Cài đặt dấu ảnh").setView(ScrollView(this).apply { addView(col) })
             .setPositiveButton("Lưu") { _, _ ->
                 val e = sp.edit()
@@ -879,6 +880,15 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 boolKeys.forEachIndexed { i, kv -> e.putBoolean(kv.first, cbs[i].isChecked) }
                 e.apply(); refresh()
             }.setNegativeButton("Huỷ", null).show()
+    }
+    private fun showAppInfo() {
+        val version = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0"
+        val content = TextView(this).apply {
+            text = "Datvip Cam\nPhiên bản: $version\n\napp chụp hình hiện trường thời gian thực\n\nPhát triển\nNguyễn Đắc Đạt\n\nEmail: chobanchotoi@gmail.com\n\n© 2026 Nguyễn Đắc Đạt"
+            textSize = 17f; setPadding(dp(24), dp(16), dp(24), dp(16)); setTextIsSelectable(true)
+        }
+        AlertDialog.Builder(this).setTitle("Thông tin").setView(ScrollView(this).apply { addView(content) })
+            .setPositiveButton("Đóng", null).show()
     }
     private fun directionsLink(lat: Double, lon: Double): String =
         "https://www.google.com/maps/dir/?api=1&destination=" + String.format(Locale.US, "%.6f,%.6f", lat, lon) + "&travelmode=driving"
