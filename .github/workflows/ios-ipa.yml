@@ -6,14 +6,20 @@ on:
     paths: ["ios/**", ".github/workflows/ios-ipa.yml"]
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Chọn Xcode mới nhất
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - name: Cài XcodeGen
         run: brew install xcodegen
       - name: Tạo project Xcode
         working-directory: ios
-        run: xcodegen generate
+        run: |
+          xcodebuild -version
+          xcodegen generate
       - name: Build (không ký) và đóng gói IPA
         working-directory: ios
         run: |
