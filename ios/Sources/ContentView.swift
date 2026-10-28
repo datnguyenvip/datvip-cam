@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var showShare = false
     @State private var showNote = false
     @State private var showGallery = false
+    @State private var showTemplates = false
     @AppStorage("logoOn") private var logoOn = true
     @State private var logoImg = UIImage(contentsOfFile: CameraModel.logoURL.path)
     private let orange = Color(red: 1, green: 0.42, blue: 0.10)
@@ -78,6 +79,7 @@ struct ContentView: View {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     VStack(spacing: 10) {
+                        mini("doc.text") { showTemplates = true }
                         mini("pencil") { showNote = true }
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }
                     }.padding(10)
@@ -104,6 +106,7 @@ struct ContentView: View {
         .background(Color.black.ignoresSafeArea())
         .sheet(isPresented: $showSettings, onDismiss: { logoImg = UIImage(contentsOfFile: CameraModel.logoURL.path) }) { SettingsView() }
         .sheet(isPresented: $showNote) { NoteView() }
+        .sheet(isPresented: $showTemplates) { TemplatesView() }
         .sheet(isPresented: $showGallery) { GalleryView(model: m) }
         .sheet(isPresented: $showShare) { ShareSheet(items: m.shareItems) }
     }
@@ -159,18 +162,18 @@ struct ContentView: View {
                             .padding(0.8 * u).background(Color.white.opacity(0.92)).clipShape(RoundedRectangle(cornerRadius: 0.8 * u))
                         VStack(alignment: .leading, spacing: 1) {
                             if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
-                            if let a = L.address { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
+                            if let a = L.place { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
                         }
                     }
+                } else {
+                    if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
+                    if let a = L.place { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
                 }
                 if let h = L.head {
                     Text(h).font(.system(size: 7.5 * u, weight: .bold)).foregroundColor(yellow)
                     Text(L.date ?? "").font(.system(size: 3.4 * u))
                 }
-                if lg == nil {
-                    if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
-                    if let a = L.address { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
-                }
+                if let a = L.address { Text(a).font(.system(size: 3.3 * u)).foregroundColor(Color(white: 0.92)) }
                 ForEach(Array(L.custom.enumerated()), id: \.offset) { _, r in
                     Text(r).font(.system(size: 3.3 * u)).foregroundColor(Color(white: 0.92))
                 }
@@ -190,6 +193,7 @@ struct NoteView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Địa điểm làm nhiệm vụ") { KeyField("place", "VD: Tại ngã ba Hoàng Cầm - số 6") }
                 Section("Ghi chú") { KeyField("note", "Ghi chú") }
                 Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
             }
@@ -285,6 +289,7 @@ struct SettingsView: View {
     @AppStorage("alt") private var alt = true
     @AppStorage("hdg") private var hdg = true
     @AppStorage("wmOn") private var wmOn = true
+    @AppStorage("addrOn") private var addrOn = true
     @AppStorage("logoOn") private var logoOn = true
     @State private var pick: PhotosPickerItem?
 
@@ -293,14 +298,14 @@ struct SettingsView: View {
             Form {
                 Section("Thông tin") {
                     KeyField("proj", "Tên nhiệm vụ / công việc")
-                    KeyField("addr", "Địa chỉ (để trống = tự lấy theo GPS)")
+                    KeyField("place", "Địa điểm làm nhiệm vụ (VD: Tại ngã ba Hoàng Cầm - số 6)")
                     KeyField("note", "Ghi chú")
                     KeyField("wm", "Watermark chìm (tên công ty…)")
                 }
                 Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
                 Section("Hiển thị trên ảnh") {
                     Toggle("Ngày giờ", isOn: $time); Toggle("Toạ độ GPS", isOn: $gps); Toggle("Độ cao", isOn: $alt)
-                    Toggle("Hướng la bàn", isOn: $hdg); Toggle("Watermark chìm", isOn: $wmOn)
+                    Toggle("Hướng la bàn", isOn: $hdg); Toggle("Watermark chìm", isOn: $wmOn); Toggle("Địa chỉ theo GPS (dưới giờ)", isOn: $addrOn)
                 }
                 Section("Logo") {
                     PhotosPicker(selection: $pick, matching: .images) { Text("Chọn logo từ thư viện") }
@@ -321,5 +326,93 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+
+// MARK: - Mẫu nhiệm vụ (ghi chú có sẵn, sửa được)
+struct NoteTemplate: Codable, Identifiable {
+    var id = UUID()
+    var name: String
+    var vals: [String: String]
+    var summary: String { [vals["proj"], vals["place"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ") }
+}
+
+enum TemplateStore {
+    /// Các ô được ghi vào mẫu (ghi chú riêng từng ảnh không nằm trong mẫu)
+    static let keys = ["proj", "place", "f1l", "f1v", "f2l", "f2v", "f3l", "f3v", "f4l", "f4v"]
+    static func current() -> [String: String] {
+        Dictionary(uniqueKeysWithValues: keys.map { ($0, UserDefaults.standard.string(forKey: $0) ?? "") })
+    }
+    static func apply(_ t: NoteTemplate) { for k in keys { UserDefaults.standard.set(t.vals[k] ?? "", forKey: k) } }
+    static func save(_ list: [NoteTemplate]) {
+        if let d = try? JSONEncoder().encode(list) { UserDefaults.standard.set(d, forKey: "templates") }
+    }
+    static func load() -> [NoteTemplate] {
+        if let d = UserDefaults.standard.data(forKey: "templates"), let r = try? JSONDecoder().decode([NoteTemplate].self, from: d) { return r }
+        save(defaults); return defaults
+    }
+    private static func make(_ name: String, _ proj: String, _ place: String) -> NoteTemplate {
+        NoteTemplate(name: name, vals: ["proj": proj, "place": place, "f1l": "ANCS", "f1v": "DatVip – tổ 3"])
+    }
+    static let defaults: [NoteTemplate] = [
+        make("Giao thông", "Trực chốt giao thông", "Ngã ba đường Hoàng Cầm - đường số 5"),
+        make("Karaoke", "Mở nhạc/karaoke gây tiếng ồn", "Đã nhắc nhở"),
+        make("Đưa đối tượng đi test", "Đưa đối tượng đi test/khám sức khỏe", "Bệnh viện/TT Y tế: Linh Xuân"),
+        make("Bảo vệ hiện trường", "Bảo vệ hiện trường", "Vụ việc: tai nạn giao thông tại "),
+        make("Giao phạm", "Đưa đối tượng đi trại", "Trại: Bố Lá"),
+        make("Tuần tra", "Tuần tra/xử lý vi phạm", "Xử lý vi phạm"),
+        make("Hỗ trợ UB", "Hỗ trợ Ủy ban", "Sắp xếp"),
+    ]
+}
+
+struct TemplatesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var items = TemplateStore.load()
+    @State private var showNew = false
+    @State private var newName = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(items) { t in
+                    Button { TemplateStore.apply(t); dismiss() } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(t.name).font(.headline)
+                            Text(t.summary).font(.caption).foregroundColor(.secondary).lineLimit(2)
+                        }
+                    }
+                    .contextMenu {
+                        Button("Cập nhật mẫu bằng nội dung hiện tại") { replace(t) }
+                        Button("Xoá mẫu", role: .destructive) { items.removeAll { $0.id == t.id }; TemplateStore.save(items) }
+                    }
+                }
+                .onDelete { idx in items.remove(atOffsets: idx); TemplateStore.save(items) }
+                Section {
+                    Text("Chạm vào mẫu để dùng. Sau đó bạn vẫn sửa được ở nút ✎ hoặc ⚙. Giữ lâu một mẫu để cập nhật hoặc xoá. Bấm + để lưu nội dung đang dùng thành mẫu mới.")
+                        .font(.footnote).foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Mẫu nhiệm vụ")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Đóng") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) { Button { newName = ""; showNew = true } label: { Image(systemName: "plus") } }
+            }
+            .alert("Lưu nội dung hiện tại thành mẫu", isPresented: $showNew) {
+                TextField("Tên mẫu", text: $newName)
+                Button("Lưu") { saveNew() }
+                Button("Huỷ", role: .cancel) {}
+            }
+        }
+    }
+    private func replace(_ t: NoteTemplate) {
+        if let i = items.firstIndex(where: { $0.id == t.id }) { items[i].vals = TemplateStore.current(); TemplateStore.save(items) }
+    }
+    private func saveNew() {
+        let n = newName.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty else { return }
+        if let i = items.firstIndex(where: { $0.name == n }) { items[i].vals = TemplateStore.current() }
+        else { items.append(NoteTemplate(name: n, vals: TemplateStore.current())) }
+        TemplateStore.save(items)
     }
 }

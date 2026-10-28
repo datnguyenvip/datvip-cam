@@ -8,7 +8,7 @@ import Photos
 import UniformTypeIdentifiers
 
 struct Row { let t: String; let size: CGFloat; let bold: Bool; let color: UIColor }
-typealias StampLines = (head: String?, date: String?, project: String?, address: String?, custom: [String], rows: [String])
+typealias StampLines = (head: String?, date: String?, project: String?, place: String?, address: String?, custom: [String], rows: [String])
 struct PhotoRec: Codable, Identifiable { var file: String; var time: Date; var lat: Double?; var lon: Double?; var video: Bool? = nil; var id: String { file } }
 
 extension UIImage {
@@ -327,8 +327,9 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             date = f.string(from: d).capitalized + " (GMT\(off >= 0 ? "+" : "")\(off))"
         }
         let project: String? = str("proj").isEmpty ? nil : "Nhiệm vụ: " + str("proj")
-        let addr = str("addr").isEmpty ? autoAddr : str("addr")
-        let address: String? = addr.isEmpty ? nil : addr
+        let pl = str("place").trimmingCharacters(in: .whitespaces)
+        let place: String? = pl.isEmpty ? nil : pl                                   // do người dùng tự ghi (cạnh logo)
+        let address: String? = (flag("addrOn") && !autoAddr.isEmpty) ? autoAddr : nil  // địa chỉ theo GPS (dưới giờ)
         var custom: [String] = []
         for i in 1...4 {
             let lb = str("f\(i)l"), v = str("f\(i)v")
@@ -343,7 +344,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if flag("alt"), let l = l, l.verticalAccuracy >= 0 { rows.append("Độ cao \(Int(l.altitude)) m") }
         if flag("hdg"), let h = heading { rows.append("Hướng \(Int(h))° \(dirs[Int((h / 45).rounded()) % 8])") }
         if !str("note").isEmpty { rows.append("Ghi chú: " + str("note")) }
-        return (head, date, project, address, custom, rows)
+        return (head, date, project, place, address, custom, rows)
     }
     private func code(_ d: Date, _ l: CLLocation?) -> String {
         let raw = "\(Int(d.timeIntervalSince1970 * 1000))|" + (l.map { String(format: "%.6f,%.6f", $0.coordinate.latitude, $0.coordinate.longitude) } ?? "-")
@@ -354,8 +355,8 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if !str("proj").isEmpty { s += "Nhiệm vụ: " + str("proj") + "\n" }
         let f = DateFormatter(); f.dateFormat = "HH:mm:ss dd/MM/yyyy"
         s += "🕒 " + f.string(from: d) + "\n"
-        let addr = str("addr").isEmpty ? autoAddr : str("addr")
-        if !addr.isEmpty { s += "🏠 " + addr + "\n" }
+        if !str("place").isEmpty { s += "📌 " + str("place") + "\n" }
+        if !autoAddr.isEmpty { s += "🏠 " + autoAddr + "\n" }
         if let l = l { s += String(format: "📍 %.6f,%.6f", l.coordinate.latitude, l.coordinate.longitude) + "\n🧭 Chỉ đường: " + dirLink(l) + "\n" }
         if !str("note").isEmpty { s += "Ghi chú: " + str("note") }
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -428,13 +429,16 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 if lw > u * 24 { lw = u * 24; lh = lw * lg.size.height / lg.size.width }
             }
             var items: [Row] = []
+            if lg == nil {   // không có logo: nhiệm vụ + địa điểm nằm trên cùng
+                if let p = L.project { items.append(Row(t: p, size: u * 3.8, bold: true, color: orange)) }
+                if let a = L.place { items.append(Row(t: a, size: u * 3.4, bold: true, color: .white)) }
+            }
             if let hd = L.head {
                 items.append(Row(t: hd, size: u * 7.5, bold: true, color: UIColor(red: 1, green: 0.82, blue: 0.25, alpha: 1)))
                 items.append(Row(t: L.date ?? "", size: u * 3.4, bold: false, color: .white))
             }
-            if lg == nil {
-                if let p = L.project { items.append(Row(t: p, size: u * 3.8, bold: true, color: orange)) }
-                if let a = L.address { items.append(Row(t: a, size: u * 3.4, bold: true, color: .white)) }
+            if let a = L.address {   // địa chỉ GPS ngay dưới giờ
+                items.append(Row(t: a, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
             }
             L.custom.forEach { items.append(Row(t: $0, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1))) }
             L.rows.forEach { items.append(style($0, u)) }
@@ -451,7 +455,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
                 if let pj = L.project {
                     sideStr.append(NSAttributedString(string: pj, attributes: [.font: UIFont.boldSystemFont(ofSize: u * 3.8), .foregroundColor: orange]))
                 }
-                if let a = L.address {
+                if let a = L.place {
                     if sideStr.length > 0 { sideStr.append(NSAttributedString(string: "\n")) }
                     sideStr.append(NSAttributedString(string: a, attributes: [.font: sideFont, .foregroundColor: UIColor.white]))
                 }
