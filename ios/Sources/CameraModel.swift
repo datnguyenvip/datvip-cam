@@ -408,18 +408,30 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
 
         let logo = flag("logoOn") ? LogoImage.load() : nil
         var entries: [Row] = []
+
+        // Move the editable "Dia diem" field immediately below the logo/task header.
+        // Keep every other custom field in its original order and avoid duplicates.
+        let placeIndex = L.custom.firstIndex { value in
+            let label = value.split(separator: ":", maxSplits: 1).first
+                .map(String.init) ?? ""
+            return label.trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "vi_VN")) == "dia diem"
+        }
+        if let index = placeIndex {
+            entries.append(Row(t: L.custom[index], size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
+        }
         if let time = L.head, !time.isEmpty {
             entries.append(Row(t: time, size: u * 7.5, bold: true, color: yellow))
         }
         if let date = L.date, !date.isEmpty {
             entries.append(Row(t: date, size: u * 3.4, bold: false, color: .white))
         }
-        // Address is always directly below the date, whether or not a logo is shown.
+        // GPS-derived address stays directly below the date.
         if let address = L.address, !address.isEmpty {
             entries.append(Row(t: address, size: u * 3.4, bold: true, color: .white))
         }
-        L.custom.forEach {
-            entries.append(Row(t: $0, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
+        for (index, value) in L.custom.enumerated() where index != placeIndex {
+            entries.append(Row(t: value, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
         }
         L.rows.forEach { entries.append(style($0, u)) }
         let project = L.project ?? ""
