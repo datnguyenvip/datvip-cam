@@ -407,33 +407,71 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         }
 
         let logo = flag("logoOn") ? LogoImage.load() : nil
-        var entries: [Row] = []
+       
+var entries: [Row] = []
 
-        // Move the editable "Dia diem" field immediately below the logo/task header.
-        // Keep every other custom field in its original order and avoid duplicates.
-        let placeIndex = L.custom.firstIndex { value in
-            let label = value.split(separator: ":", maxSplits: 1).first
-                .map(String.init) ?? ""
-            return label.trimmingCharacters(in: .whitespacesAndNewlines)
-                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "vi_VN")) == "dia diem"
-        }
-        if let index = placeIndex {
-            entries.append(Row(t: L.custom[index], size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
-        }
-        if let time = L.head, !time.isEmpty {
-            entries.append(Row(t: time, size: u * 7.5, bold: true, color: yellow))
-        }
-        if let date = L.date, !date.isEmpty {
-            entries.append(Row(t: date, size: u * 3.4, bold: false, color: .white))
-        }
-        // GPS-derived address stays directly below the date.
-        if let address = L.address, !address.isEmpty {
-            entries.append(Row(t: address, size: u * 3.4, bold: true, color: .white))
-        }
-        for (index, value) in L.custom.enumerated() where index != placeIndex {
-            entries.append(Row(t: value, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1)))
-        }
-        L.rows.forEach { entries.append(style($0, u)) }
+// Lay Dia diem tu cac truong tuy bien, khong phu thuoc f1-f4.
+let placeIndex = L.custom.firstIndex { value in
+    let label = value.components(separatedBy: ":").first ?? ""
+    return label.trimmingCharacters(in: .whitespacesAndNewlines)
+        .folding(options: [.diacriticInsensitive, .caseInsensitive],
+                 locale: Locale(identifier: "vi_VN"))
+        .lowercased() == "dia diem"
+}
+
+// Dia diem ngay duoi hang logo + Nhiem vu.
+if let index = placeIndex {
+    entries.append(Row(
+        t: L.custom[index],
+        size: u * 3.4,
+        bold: true,
+        color: .white
+    ))
+}
+
+// Gio.
+if let time = L.head, !time.isEmpty {
+    entries.append(Row(
+        t: time,
+        size: u * 7.5,
+        bold: true,
+        color: yellow
+    ))
+}
+
+// Ngay thang.
+if let date = L.date, !date.isEmpty {
+    entries.append(Row(
+        t: date,
+        size: u * 3.4,
+        bold: false,
+        color: .white
+    ))
+}
+
+// Dia chi GPS ngay duoi ngay thang.
+if let address = L.address, !address.isEmpty {
+    entries.append(Row(
+        t: address,
+        size: u * 3.4,
+        bold: true,
+        color: .white
+    ))
+}
+
+// Cac truong con lai, khong lap Dia diem.
+for (index, value) in L.custom.enumerated() {
+    if index == placeIndex { continue }
+    entries.append(Row(
+        t: value,
+        size: u * 3.3,
+        bold: false,
+        color: UIColor(white: 0.92, alpha: 1)
+    ))
+}
+
+L.rows.forEach { entries.append(style($0, u)) }
+
         let project = L.project ?? ""
         if logo == nil && project.isEmpty && entries.isEmpty { return }
 
