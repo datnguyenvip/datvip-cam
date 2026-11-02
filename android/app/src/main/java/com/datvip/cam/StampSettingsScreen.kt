@@ -3,11 +3,13 @@ package com.datvip.cam
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -236,7 +238,18 @@ class StampSettingsScreen(
             logos.addView(button("Dùng logo mặc định") { resetLogo(); notifyChange() })
             val show = section("Hiển thị trên ảnh và video")
             for ((key, label) in listOf("time" to "Ngày giờ", "gps" to "Toạ độ GPS", "alt" to "Độ cao", "hdg" to "Hướng la bàn", "wmOn" to "Watermark chìm", "shutterSound" to "Tiếng chụp ảnh")) toggle(show, key, label)
-            section("Ứng dụng").addView(button("Thông tin và phiên bản", about))
+            val app = section("Ứng dụng")
+            app.addView(button("Thông tin và phiên bản", about))
+            app.addView(text("Vị trí được dùng để đóng dấu và tra cứu địa chỉ qua dịch vụ Android. Ẩn dòng GPS không tắt định vị. Bạn có thể thu hồi quyền vị trí trong cài đặt điện thoại."))
+            app.addView(button("Chính sách quyền riêng tư") {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://datnguyenvip.github.io/datvip-cam/")))
+                } catch (_: android.content.ActivityNotFoundException) {
+                    AlertDialog.Builder(context).setTitle("Chính sách quyền riêng tư")
+                        .setMessage("https://datnguyenvip.github.io/datvip-cam/\nLiên hệ: chobanchotoi@gmail.com")
+                        .setPositiveButton("Đóng", null).show()
+                }
+            })
         }
         root.requestFocus(); refreshPreview(); return root
     }
