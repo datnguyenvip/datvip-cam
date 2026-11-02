@@ -30,7 +30,7 @@ extension UIImage {
             visited[index] = 1
             let pixel = index * 4
             let alpha = UInt16(pixels[pixel + 3])
-            if alpha == 0 || (0...2).allSatisfy({ UInt16(pixels[pixel + $0]) * 255 >= 242 * alpha }) {
+            if alpha == 0 || (0...2).allSatisfy({ UInt16(pixels[pixel + $0]) * 255 >= 230 * alpha }) {
                 queue.append(index)
             }
         }

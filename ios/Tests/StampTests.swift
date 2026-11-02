@@ -323,7 +323,7 @@ final class StampTests: XCTestCase {
     func testRemoveWhiteBackgroundPreservesEnclosedDetailAndOriginal() throws {
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let original = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20), format: format).image { _ in
-            UIColor.white.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 20, height: 20))
+            UIColor(white: 0.94, alpha: 1).setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 20, height: 20))
             UIColor.red.setFill(); UIRectFill(CGRect(x: 4, y: 4, width: 12, height: 12))
             UIColor.white.setFill(); UIRectFill(CGRect(x: 8, y: 8, width: 4, height: 4))
         }
