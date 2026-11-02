@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var destroying = false
     private var lastMime = "image/jpeg"
     private val videoExporter = VideoStampExporter()
+    private var settingsScreen: StampSettingsScreen? = null
     private val videoFrames = ArrayList<VideoStampFrame>()
     private var videoStart = Date()
     private var videoLocation: Location? = null
@@ -696,90 +697,22 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     /* ---------- Cài đặt, thư viện ---------- */
 
-    private fun backgroundSettings() {
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(10), dp(20), dp(10)) }
-        val preview = StampOverlayView(this)
-        col.addView(preview, LinearLayout.LayoutParams(-1, dp(240)))
-        col.addView(TextView(this).apply { text = "Chỉnh trực tiếp theo hình xem thử. 0% độ đậm là trong suốt hoàn toàn." })
-        val hex = EditText(this).apply { hint = "Màu nền #RRGGBB"; setSingleLine(); setText("#" + (sp.getString("stampBackgroundHex", StampSettings.DEFAULT_HEX) ?: StampSettings.DEFAULT_HEX)) }
-        col.addView(hex)
-        fun slider(title: String, maxValue: Int, initial: Int): Pair<SeekBar, TextView> {
-            val label = TextView(this); val bar = SeekBar(this).apply { max = maxValue; progress = initial }
-            col.addView(label); col.addView(bar)
-            label.text = title
-            return bar to label
-        }
-        val (sizeBar, sizeLabel) = slider("Cỡ dấu", 70, ((StampSettings.appearance(sp).size - .5f) * 100).toInt())
-        val quick = LinearLayout(this)
-        for ((title, value) in listOf("Rất nhỏ" to 0, "Gọn" to 25, "Lớn" to 50)) quick.addView(Button(this).apply { text = title; setOnClickListener { sizeBar.progress = value } }, LinearLayout.LayoutParams(0, -2, 1f))
-        col.addView(quick)
-        val (opacity, opacityLabel) = slider("Độ đậm nền", 100, (sp.getFloat("stampBackgroundOpacity", .75f) * 100).toInt().coerceIn(0, 100))
-        val (logoOpacity, logoLabel) = slider("Độ đậm logo", 100, (StampSettings.appearance(sp).logoOpacity * 100).toInt())
-        val removeWhite = CheckBox(this).apply { text = "Ẩn nền trắng của logo (giữ tệp gốc)"; isChecked = sp.getBoolean("stampLogoRemoveWhiteBackground", false) }
-        col.addView(removeWhite)
-        var previewLogo = originalLogo()
-        var cutoutLogo = previewLogo?.let { LogoProcessing.removeWhite(it) }
-        fun update() {
-            val color = runCatching { Color.parseColor("#" + hex.text.toString().trim().removePrefix("#")) }.getOrDefault(StampSettings.background(sp))
-            val size = (sizeBar.progress + 50) / 100f
-            sizeLabel.text = "Cỡ dấu: "+(sizeBar.progress + 50)+"%"
-            opacityLabel.text = "Độ đậm nền: "+opacity.progress+"%"
-            logoLabel.text = "Độ đậm logo: "+logoOpacity.progress+"%"
-            val now = Date(); val content = lines(now)
-            preview.stamp = Stamp(content.head, content.date, content.rows + "Mã xác thực: 12345678")
-            preview.logo = (if (removeWhite.isChecked) cutoutLogo else previewLogo)?.takeIf { b("logoOn") }
-            preview.appearance = StampAppearance(Color.argb(opacity.progress * 255 / 100, Color.red(color), Color.green(color), Color.blue(color)), size, logoOpacity.progress / 100f)
-            preview.invalidate()
-        }
-        val listener = object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) { update() }
-            override fun onStartTrackingTouch(bar: SeekBar?) {}
-            override fun onStopTrackingTouch(bar: SeekBar?) {}
-        }
-        listOf(sizeBar, opacity, logoOpacity).forEach { it.setOnSeekBarChangeListener(listener) }
-        removeWhite.setOnCheckedChangeListener { _, _ -> update() }
-        col.addView(Button(this).apply { text = "Xem thử màu đã nhập"; setOnClickListener { update() } })
-        update()
-        val dialog = AlertDialog.Builder(this).setTitle("Cỡ dấu, nền và logo").setView(ScrollView(this).apply { addView(col) })
-            .setPositiveButton("Lưu", null).setNegativeButton("Huỷ", null).create()
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val value = hex.text.toString().trim().removePrefix("#")
-            if (!value.matches(Regex("[0-9a-fA-F]{6}"))) hex.error = "Nhập 6 ký tự màu, ví dụ #576145"
-            else {
-                sp.edit().putString("stampBackgroundHex", value.uppercase(Locale.US))
-                    .putFloat("stampBackgroundOpacity", opacity.progress / 100f)
-                    .putFloat("stampDisplaySize", (sizeBar.progress + 50) / 100f)
-                    .putFloat("stampLogoOpacity", logoOpacity.progress / 100f)
-                    .putBoolean("stampLogoRemoveWhiteBackground", removeWhite.isChecked).apply()
-                loadLogo(); refresh(); dialog.dismiss()
-            }
-        } }
-        dialog.show()
+    private fun settings() = openStampSettings(false)
+    private fun openStampSettings(quick: Boolean) {
+        settingsScreen = StampSettingsScreen(this, sp, changed = { refresh() },
+            reloadLogo = { loadLogo() }, logo = { logoBmp },
+            pickLogo = { pickLogo.launch("image/*") },
+            resetLogo = { File(filesDir, "logo.png").delete(); loadLogo(); refresh() },
+            about = { showAppInfo() }, quick = quick)
+        settingsScreen?.show()
     }
 
-    private fun settings() {
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
-        col.addView(Button(this).apply { text = "Cỡ dấu, màu nền và logo trong suốt"; setOnClickListener { backgroundSettings() } })
-        val fields = listOf("proj" to "Tên nhiệm vụ / công việc", "addr" to "Địa chỉ (để trống = tự lấy theo GPS)", "note" to "Ghi chú", "wm" to "Watermark chìm (tên công ty…)") + (1..4).flatMap { listOf("f${it}l" to "Nhãn trường $it (VD: Tên)", "f${it}v" to "Nội dung trường $it (VD: Đạt)") }
-        val ets = fields.map { (k, hint) -> EditText(this).apply { this.hint = hint; setText(s(k)); setSingleLine() }.also { col.addView(it) } }
-        val cbs = boolKeys.map { (k, t) -> CheckBox(this).apply { text = t; isChecked = b(k) }.also { col.addView(it) } }
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row.addView(Button(this).apply { text = if (logoBmp == null) "Chọn logo" else "Đổi logo"; setOnClickListener { pickLogo.launch("image/*") } })
-        row.addView(Button(this).apply { text = "Xoá logo"; setOnClickListener { File(filesDir, "logo.png").delete(); loadLogo(); refresh(); toast("Đã trở về logo mặc định") } })
-        col.addView(row)
-        col.addView(Button(this).apply { text = "Thông tin Datvip Cam"; setOnClickListener { showAppInfo() } })
-        AlertDialog.Builder(this).setTitle("Cài đặt dấu ảnh").setView(ScrollView(this).apply { addView(col) })
-            .setPositiveButton("Lưu") { _, _ ->
-                val e = sp.edit()
-                fields.forEachIndexed { i, f -> e.putString(f.first, ets[i].text.toString().trim()) }
-                boolKeys.forEachIndexed { i, kv -> e.putBoolean(kv.first, cbs[i].isChecked) }
-                e.apply(); refresh()
-            }.setNegativeButton("Huỷ", null).show()
-    }
     private fun showAppInfo() {
-        val version = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0"
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val version = info.versionName ?: "1.0.1"
+        val detail = "Mã bản dựng: " + info.longVersionCode + " · " + packageName
         val content = TextView(this).apply {
-            text = "Datvip Cam\nPhiên bản: $version\n\napp chụp hình hiện trường thời gian thực\n\nPhát triển\nNguyễn Đắc Đạt\n\nEmail: chobanchotoi@gmail.com\n\n© 2026 Nguyễn Đắc Đạt"
+            text = "Datvip Cam\nPhiên bản: $version\n$detail\n\napp chụp hình hiện trường thời gian thực\n\nPhát triển\nNguyễn Đắc Đạt\n\nEmail: chobanchotoi@gmail.com\n\n© 2026 Nguyễn Đắc Đạt"
             textSize = 17f; setPadding(dp(24), dp(16), dp(24), dp(16)); setTextIsSelectable(true)
         }
         AlertDialog.Builder(this).setTitle("Thông tin").setView(ScrollView(this).apply { addView(content) })
@@ -821,7 +754,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             val o2 = BitmapFactory.Options().apply { inSampleSize = ss }
             val bm = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o2) } ?: throw Exception("decode")
             File(filesDir, "logo.png").outputStream().use { trimLogo(bm).compress(Bitmap.CompressFormat.PNG, 100, it) }
-            loadLogo(); refresh(); toast("Đã đặt logo")
+            loadLogo(); refresh(); settingsScreen?.refreshPreview(); toast("Đã đặt logo")
         } catch (e: Exception) { toast("Không đọc được ảnh logo") }
     }
     private fun applyRotation() {
@@ -837,77 +770,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     }
     private fun quickNote() {
         if (videoBusy()) { toast("Hãy đợi lưu video"); return }
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
-        val keys = NotePresets.fields
-        val editors = keys.associate { (key, hint) -> key to EditText(this).apply {
-            this.hint = hint; setText(s(key)); if (key != "note") setSingleLine()
-        } }
-        fun draft() = editors.mapValues { it.value.text.toString().trim() }
-        fun use(values: Map<String, String>) {
-            val edit = sp.edit()
-            keys.forEach { (key, _) ->
-                val value = values[key] ?: ""
-                edit.putString(key, value); editors.getValue(key).setText(value)
-            }
-            edit.apply(); refresh()
-        }
-        val saved = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(TextView(this).apply { text = "Lưu tối đa 10 mẫu: nhiệm vụ, ghi chú và 4 trường tuỳ biến. GPS vẫn lấy mới." })
-        col.addView(saved)
-        lateinit var redraw: () -> Unit
-        fun askName(initial: String, apply: (String) -> Unit) {
-            val input = EditText(this).apply { hint = "Tên mẫu"; setText(initial); setSingleLine() }
-            val dialog = AlertDialog.Builder(this).setTitle("Tên mẫu ghi chú").setView(input)
-                .setPositiveButton("Lưu", null).setNegativeButton("Huỷ", null).create()
-            dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val title = input.text.toString().trim().take(60)
-                if (title.isEmpty()) input.error = "Hãy nhập tên mẫu"
-                else { apply(title); dialog.dismiss() }
-            } }
-            dialog.show()
-        }
-        redraw = {
-            saved.removeAllViews()
-            val templates = NotePresets.load(sp)
-            saved.addView(TextView(this).apply { text = "Mẫu đã lưu (${templates.size}/20)"; typeface = Typeface.DEFAULT_BOLD })
-            templates.forEach { template -> saved.addView(Button(this).apply {
-                text = template.name
-                setOnClickListener {
-                    AlertDialog.Builder(this@MainActivity).setTitle(template.name)
-                        .setItems(arrayOf("Dùng mẫu", "Cập nhật từ nội dung đang nhập", "Đổi tên", "Xoá mẫu")) { _, action ->
-                            val current = NotePresets.load(sp)
-                            when (action) {
-                                0 -> { use(template.values); toast("Đã dùng mẫu: ${template.name}") }
-                                1 -> { NotePresets.save(sp, current.map { if (it.id == template.id) it.copy(values = draft()) else it }); redraw() }
-                                2 -> askName(template.name) { title ->
-                                    if (current.any { it.id != template.id && it.name.equals(title, true) }) toast("Tên mẫu đã có")
-                                    else { NotePresets.save(sp, current.map { if (it.id == template.id) it.copy(name = title) else it }); redraw() }
-                                }
-                                3 -> AlertDialog.Builder(this@MainActivity).setMessage("Xoá mẫu ${template.name}?")
-                                    .setPositiveButton("Xoá") { _, _ -> NotePresets.save(sp, current.filter { it.id != template.id }); redraw() }
-                                    .setNegativeButton("Huỷ", null).show()
-                            }
-                        }.show()
-                }
-            }) }
-        }
-        redraw()
-        keys.forEach { (key, _) -> col.addView(editors.getValue(key)) }
-        col.addView(Button(this).apply {
-            text = "Lưu nội dung thành mẫu mới"
-            setOnClickListener {
-                val values = draft()
-                if (values.values.all { it.isBlank() }) toast("Hãy nhập nội dung trước khi lưu mẫu")
-                else if (NotePresets.load(sp).size >= 20) toast("Đã đủ 20 mẫu. Hãy cập nhật hoặc xoá một mẫu")
-                else askName(values["note"].orEmpty().ifEmpty { values["proj"].orEmpty() }.take(40)) { title ->
-                    val templates = NotePresets.load(sp)
-                    if (templates.any { it.name.equals(title, true) }) toast("Tên mẫu đã có")
-                    else if (templates.size < 20) { NotePresets.save(sp, templates + NotePreset(UUID.randomUUID().toString(), title, values)); redraw(); toast("Đã lưu mẫu") }
-                }
-            }
-        })
-        AlertDialog.Builder(this).setTitle("Ghi chú nhanh và mẫu đã lưu").setView(ScrollView(this).apply { addView(col) })
-            .setPositiveButton("Dùng nội dung") { _, _ -> use(draft()) }.setNegativeButton("Đóng", null).show()
+        openStampSettings(true)
     }
 
     /* ---------- Thư viện + chia sẻ hàng loạt ---------- */

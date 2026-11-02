@@ -23,13 +23,14 @@ jobs:
           gradle-version: '8.11.1'
       - name: Test and build release APK and AAB
         working-directory: android
-        run: gradle testDebugUnitTest lintRelease assembleRelease bundleRelease --stacktrace
+        run: gradle testDebugUnitTest lintRelease assembleRelease assemblePreview bundleRelease --stacktrace
       - name: Upload unsigned release outputs for local signing
         uses: actions/upload-artifact@v4
         with:
           name: DatvipCam-Android-release-unsigned
           path: |
             android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/preview/*.apk
             android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
       - name: Upload Android validation evidence

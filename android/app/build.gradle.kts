@@ -10,8 +10,9 @@ android {
         applicationId = "com.datvip.cam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
+        resValue("string", "app_name", "Datvip Cam")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -19,7 +20,16 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     testOptions { unitTests.isIncludeAndroidResources = true }
-    buildTypes { getByName("release") { isMinifyEnabled = false } }
+    buildTypes {
+        getByName("release") { isMinifyEnabled = false }
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".kiemthu"
+            versionNameSuffix = "-kiemthu"
+            resValue("string", "app_name", "Datvip Cam Mới")
+            matchingFallbacks += listOf("release")
+        }
+    }
 }
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
