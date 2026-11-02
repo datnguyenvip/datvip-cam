@@ -1,6 +1,6 @@
 # Chính sách quyền riêng tư — DatVip Cam
 
-Cập nhật: 02/11/2026. Áp dụng cho ứng dụng Android DatVip Cam (`com.datvip.cam`), phiên bản 1.0.1.
+Cập nhật: 02/11/2026. Áp dụng cho ứng dụng Android DatVip Cam (`com.datvip.cam`), phiên bản 1.0.1 và 1.0.2.
 
 Nhà phát triển: Nguyễn Đắc Đạt. Liên hệ về quyền riêng tư và hỗ trợ: **chobanchotoi@gmail.com**.
 
@@ -38,3 +38,4 @@ Bạn có thể cấp hoặc thu hồi quyền camera, micro và vị trí trong
 ## 5. Trẻ em và thay đổi chính sách
 
 DatVip Cam được thiết kế cho người dùng ghi nhận công việc, không hướng tới trẻ em. Chính sách sẽ được cập nhật khi cách xử lý dữ liệu thay đổi; ngày cập nhật được ghi ở đầu trang. Mọi câu hỏi hoặc yêu cầu về quyền riêng tư xin gửi tới **chobanchotoi@gmail.com**.
+
