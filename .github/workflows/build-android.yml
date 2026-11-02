@@ -1,35 +1,40 @@
-
-name: Build Android APK
-
+name: Build Android APK and AAB
 on:
   workflow_dispatch:
-
+  push:
+    branches: [codex/datvip-cam-verified-integration]
+    paths: ["android/**", ".github/workflows/build-android.yml"]
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-
-      - name: Setup Gradle 8.2.1
-        uses: gradle/actions/setup-gradle@v4
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 36 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.2.1'
-
-      - name: Build Debug APK
+          gradle-version: '8.11.1'
+      - name: Test and build release APK and AAB
         working-directory: android
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload APK
+        run: gradle testDebugUnitTest lintRelease assembleRelease bundleRelease --stacktrace
+      - name: Upload unsigned release outputs for local signing
         uses: actions/upload-artifact@v4
         with:
-          name: DatVipCam-Android-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: DatvipCam-Android-release-unsigned
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+      - name: Upload Android validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DatvipCam-Android-validation
+          path: |
+            android/app/build/reports
+            android/app/build/test-results

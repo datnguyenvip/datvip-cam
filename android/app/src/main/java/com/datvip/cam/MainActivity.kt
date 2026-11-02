@@ -125,6 +125,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var recoveryChecked = false
     private fun videoBusy() = recordPending || recording != null || videoProcessing
     private lateinit var pv: PreviewView
+    private lateinit var stampOverlay: StampOverlayView
     private lateinit var ov: TextView
     private lateinit var gpsTv: TextView
     private lateinit var stage: FrameLayout
@@ -191,6 +192,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         super.onCreate(savedInstanceState)
         shutterSound.load(MediaActionSound.SHUTTER_CLICK)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        NotePresets.installDefaults(sp)
         buildUi(); loadLogo()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -217,26 +219,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         frame.addView(pv, FrameLayout.LayoutParams(-1, -1))
         layer = FrameLayout(this)
         frame.addView(layer, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        ov = TextView(this).apply { setTextColor(Color.WHITE); setShadowLayer(dp(1).toFloat(), 0f, 1f, Color.BLACK); setPadding(dp(10), dp(8), dp(12), dp(8)) }
-        panelLogo = ImageView(this).apply {
-            visibility = View.GONE; scaleType = ImageView.ScaleType.FIT_CENTER
-            background = null
-        }
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        sideTv = TextView(this).apply { setTextColor(Color.WHITE); setShadowLayer(dp(1).toFloat(), 0f, 1f, Color.BLACK); typeface = Typeface.DEFAULT_BOLD; visibility = View.GONE; setPadding(dp(8), dp(6), dp(12), 0) }
-        val headRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        headRow.addView(panelLogo, LinearLayout.LayoutParams(dp(40), dp(20)).apply { setMargins(dp(10), dp(8), 0, 0) })
-        headRow.addView(sideTv, LinearLayout.LayoutParams(-2, -2))
-        box.addView(headRow, LinearLayout.LayoutParams(-2, -2))
-        box.addView(ov, LinearLayout.LayoutParams(-2, -2))
-        panel = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = GradientDrawable().apply { setColor(StampSettings.background(sp)); cornerRadius = dp(8).toFloat() }
-            clipToOutline = true
-            addView(View(context).apply { setBackgroundColor(0xFFFF6B1A.toInt()) }, LinearLayout.LayoutParams(dp(4), -1))
-            addView(box, LinearLayout.LayoutParams(-2, -2))
-        }
-        layer.addView(panel, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(10), 0, dp(10), dp(12)) })
+        stampOverlay = StampOverlayView(this)
+        layer.addView(stampOverlay, FrameLayout.LayoutParams(-1, -1))
         stage.addOnLayoutChangeListener { _, l0, t0, r0, b0, _, _, _, _ ->
             val sw = r0 - l0; val sh = b0 - t0
             if (sw > 0 && sh > 0) {
@@ -312,6 +296,11 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         bar.addView(cell(flipCamera, 52), one())
         bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast("Hãy đợi lưu video") }, 52), one())
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
         setContentView(root)
         updateVideoUi()
     }
@@ -462,6 +451,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 val data = JSONObject().put("date", date.time).put("landscape", landscape)
                     .put("watermark", if (b("wmOn")) s("wm") else "")
                     .put("background", StampSettings.background(sp))
+                    .put("stampSize", StampSettings.appearance(sp).size.toDouble())
+                    .put("logoOpacity", StampSettings.appearance(sp).logoOpacity.toDouble())
                     .put("share", shareText(date, location))
                 location?.let { data.put("lat", it.latitude).put("lon", it.longitude) }
                 val timeline = JSONArray()
@@ -477,7 +468,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val frozenLogo = BitmapFactory.decodeFile(logoFile.path)?.let { trimLogo(it) }
         val frozenWatermark = job.optString("watermark")
         val frozenBackground = job.optInt("background", StampSettings.background(sp))
-        videoExporter.start(this, raw, output, landscape, frames, { bitmap, line -> stamp(bitmap, line, frozenWatermark, frozenLogo, frozenBackground) }, {
+        val frozenAppearance = StampAppearance(frozenBackground,
+            job.optDouble("stampSize", .75).toFloat().coerceIn(.5f, 1.2f), job.optDouble("logoOpacity", 1.0).toFloat().coerceIn(0f, 1f))
+        videoExporter.start(this, raw, output, landscape, frames, { bitmap, line -> stamp(bitmap, line, frozenWatermark, frozenLogo, frozenBackground, frozenAppearance) }, {
             ex.execute {
                 var uri: Uri? = null
                 try {
@@ -621,116 +614,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         return MessageDigest.getInstance("SHA-256").digest(raw.toByteArray()).take(4).joinToString("") { "%02X".format(it) }
     }
     private fun refresh() {
-        (panel.background as GradientDrawable).setColor(StampSettings.background(sp))
-        val L = lines(Date()); val sb = SpannableStringBuilder()
-        val hasLogo = logoBmp != null && b("logoOn")
-        val side = if (hasLogo) L.rows.filter { it.startsWith("Nhiệm vụ:") || it.startsWith("\u200C") } else emptyList()
-        val rest = L.rows.filter { it !in side }
-        ov.setTextSize(TypedValue.COMPLEX_UNIT_PX, pxUnit * 3.3f)
-        if (side.isNotEmpty()) {
-            val sp = SpannableStringBuilder()
-            side.forEachIndexed { i, r ->
-                val s0 = sp.length; sp.append(r.removePrefix("\u200C"))
-                if (r.startsWith("Nhiệm vụ:")) sp.setSpan(ForegroundColorSpan(0xFFFFA45C.toInt()), s0, sp.length, 0)
-                if (i < side.size - 1) sp.append("\n")
-            }
-            sideTv.setTextSize(TypedValue.COMPLEX_UNIT_PX, pxUnit * 3.4f); sideTv.text = sp; sideTv.visibility = View.VISIBLE
-        } else sideTv.visibility = View.GONE
-        if (L.head != null) {
-            val n = L.head.length
-            sb.append(L.head + "\n"); sb.setSpan(RelativeSizeSpan(2.3f), 0, n, 0); sb.setSpan(StyleSpan(Typeface.BOLD), 0, n, 0)
-            sb.setSpan(ForegroundColorSpan(0xFFFFD23F.toInt()), 0, n, 0)
-            sb.append(L.date + "\n")
-        }
-        rest.forEachIndexed { i, r0 ->
-            val r = r0.removePrefix("\u200B").removePrefix("\u200C"); val s0 = sb.length; sb.append(r)
-            if (r.startsWith("Nhiệm vụ:")) { sb.setSpan(StyleSpan(Typeface.BOLD), s0, sb.length, 0); sb.setSpan(ForegroundColorSpan(0xFFFFA45C.toInt()), s0, sb.length, 0) }
-            if (i < rest.size - 1) sb.append("\n")
-        }
-        ov.text = sb; panel.visibility = if (sb.isBlank() && !hasLogo) View.GONE else View.VISIBLE
-        updateLogoView()
+        val now = Date(); val content = lines(now)
+        val verification = if (recording != null || recordPending) videoCode else code(now)
+        stampOverlay.stamp = Stamp(content.head, content.date, content.rows + "Mã xác thực: $verification")
+        stampOverlay.logo = logoBmp?.takeIf { b("logoOn") }
+        stampOverlay.appearance = StampSettings.appearance(sp)
+        stampOverlay.watermark = if (b("wmOn")) s("wm") else ""
+        stampOverlay.invalidate()
     }
 
-    private fun styleRow(t0: String, u: Float): Row {
-        if (t0.startsWith("\u200B")) return Row(t0.substring(1), u * 3.3f, false, 0xFFE6EEF2.toInt())
-        if (t0.startsWith("\u200C")) return Row(t0.substring(1), u * 3.4f, true, Color.WHITE)
-        val t = t0
-        return when {
-            t.startsWith("Nhiệm vụ:") -> Row(t, u * 3.8f, true, 0xFFFFA45C.toInt())
-            t.startsWith("📍") -> Row(t, u * 3.2f, false, Color.WHITE)
-            t.startsWith("Mã xác thực") -> Row(t, u * 2.6f, false, 0xFF9FB3BC.toInt())
-            t.startsWith("Ghi chú") || t.startsWith("Độ cao") || t.startsWith("Hướng") -> Row(t, u * 3.2f, false, 0xFFE6EEF2.toInt())
-            else -> Row(t, u * 3.4f, true, Color.WHITE)
-        }
-    }
-
-    private fun stamp(bmp: Bitmap, L: Stamp, watermark: String = if (b("wmOn")) s("wm") else "", lg: Bitmap? = logoBmp?.takeIf { b("logoOn") }, background: Int = StampSettings.background(sp)) {
-        val c = Canvas(bmp); val w = bmp.width.toFloat(); val h = bmp.height.toFloat(); val u = minOf(w, h) / 100f
-        val tp = Paint(Paint.ANTI_ALIAS_FLAG)
-        if (watermark.isNotEmpty()) {
-            tp.color = 0x44FFFFFF; tp.textSize = u * 4f; tp.typeface = Typeface.DEFAULT_BOLD; tp.textAlign = Paint.Align.CENTER
-            val tw = tp.measureText(watermark) + u * 12; val sp2 = u * 16; val dd = maxOf(w, h)
-            c.save(); c.translate(w / 2, h / 2); c.rotate(-30f)
-            var y = -dd; var row = 0
-            while (y < dd) { var x = -dd + if (row % 2 == 1) tw / 2 else 0f; while (x < dd) { c.drawText(watermark, x, y, tp); x += tw }; y += sp2; row++ }
-            c.restore(); tp.textAlign = Paint.Align.LEFT
-        }
-        var lw = 0f; var lh = 0f; val pad = 0f
-        if (lg != null) { lh = u * 9f; lw = lg.width * lh / lg.height; if (lw > u * 24f) { lw = u * 24f; lh = lw * lg.height / lg.width } }
-        val side = if (lg != null) L.rows.filter { it.startsWith("Nhiệm vụ:") || it.startsWith("\u200C") } else emptyList()
-        val rest = L.rows.filter { it !in side }
-        val items = ArrayList<Row>()
-        if (L.head != null) { items.add(Row(L.head, u * 7.5f, true, 0xFFFFD23F.toInt())); items.add(Row(L.date ?: "", u * 3.4f, false, Color.WHITE)) }
-        rest.forEach { items.add(styleRow(it, u)) }
-        if (items.isEmpty() && lg == null) return
-        val p = u * 2.8f; val m = u * 3f; val lhm = 1.35f; val bar = u * 1.4f; val gap = u * 1.8f
-        val avail = w - 2 * m - 2 * p - bar
-        var mainW = 0f
-        items.forEach { tp.textSize = it.s; tp.typeface = if (it.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT; mainW = maxOf(mainW, tp.measureText(it.t)) }
-        val badgeW = if (lg != null) lw + 2 * pad else 0f
-        val sideTp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = u * 3.4f; color = Color.WHITE; typeface = Typeface.DEFAULT_BOLD; setShadowLayer(u * .15f, 0f, u * .08f, Color.BLACK) }
-        var sideNat = 0f
-        side.forEach { sideNat = maxOf(sideNat, sideTp.measureText(it.removePrefix("\u200C"))) }
-        var contentW = minOf(maxOf(mainW, badgeW + (if (side.isNotEmpty()) gap + sideNat else 0f)), avail)
-        if (side.isNotEmpty()) contentW = maxOf(contentW, minOf(avail, badgeW + gap + u * 30f))
-        val k = minOf(1f, contentW / maxOf(mainW, 1f))
-        var headH = 0f; var sideLayout: StaticLayout? = null
-        if (lg != null) {
-            headH = lh + 2 * pad
-            if (side.isNotEmpty()) {
-                val spn = SpannableStringBuilder()
-                side.forEachIndexed { i, r ->
-                    val s0 = spn.length; spn.append(r.removePrefix("\u200C"))
-                    if (r.startsWith("Nhiệm vụ:")) spn.setSpan(ForegroundColorSpan(0xFFFFA45C.toInt()), s0, spn.length, 0)
-                    if (i < side.size - 1) spn.append("\n")
-                }
-                val sw = maxOf(1, (contentW - badgeW - gap).toInt())
-                val sl = StaticLayout.Builder.obtain(spn, 0, spn.length, sideTp, sw).build()
-                sideLayout = sl; headH = maxOf(headH, sl.height.toFloat())
-            }
-            headH += p * .6f
-        }
-        val bh = headH + items.sumOf { (it.s * k * lhm).toDouble() }.toFloat() + p * 1.6f
-        val x0 = m; val y0 = h - m - bh
-        val rect = RectF(x0, y0, x0 + bar + contentW + 2 * p, y0 + bh)
-        val path = Path().apply { addRoundRect(rect, u * 1.6f, u * 1.6f, Path.Direction.CW) }
-        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = background; setShadowLayer(u * 1.2f, 0f, u * .3f, 0x80000000.toInt()) }
-        c.drawPath(path, bg)
-        c.save(); c.clipPath(path)
-        c.drawRect(x0, y0, x0 + bar, y0 + bh, Paint().apply { color = 0xFFFF6B1A.toInt() }); c.restore()
-        var yy = y0 + p * .8f
-        if (lg != null) {
-            val bx = x0 + bar + p
-            val r = RectF(bx, yy, bx + badgeW, yy + lh + 2 * pad)
-            c.drawBitmap(lg, null, RectF(r.left + pad, r.top + pad, r.right - pad, r.bottom - pad), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
-            sideLayout?.let { sl -> c.save(); c.translate(bx + badgeW + gap, yy); sl.draw(c); c.restore() }
-            yy += headH
-        }
-        items.forEach {
-            tp.setShadowLayer(u * .15f, 0f, u * .08f, Color.BLACK)
-            tp.textSize = it.s * k; tp.typeface = if (it.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT; tp.color = it.col
-            c.drawText(it.t, x0 + bar + p, yy - tp.ascent(), tp); yy += it.s * k * lhm
-        }
+    private fun stamp(bmp: Bitmap, content: Stamp, watermark: String = if (b("wmOn")) s("wm") else "",
+                      lg: Bitmap? = logoBmp?.takeIf { b("logoOn") }, background: Int = StampSettings.background(sp),
+                      appearance: StampAppearance = StampSettings.appearance(sp)) {
+        AndroidStampRenderer.draw(Canvas(bmp), bmp.width, bmp.height, content, lg, appearance.copy(background = background), watermark)
     }
 
     /* ---------- GPS, la bàn ---------- */
@@ -807,70 +703,74 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     private fun backgroundSettings() {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(10), dp(20), dp(10)) }
-        val preview = TextView(this).apply {
-            text = "12:34:56\nNhiệm vụ · Ghi chú mẫu"; textSize = 19f; setTextColor(Color.WHITE)
-            setShadowLayer(dp(1).toFloat(), 0f, 1f, Color.BLACK); setPadding(dp(12), dp(12), dp(12), dp(12))
-        }
-        col.addView(preview)
-        col.addView(TextView(this).apply { text = "Chọn màu tuỳ ý bằng mã màu hoặc 3 thanh màu. Nền tối mờ mặc định, độ đậm tối thiểu 40% để dễ đọc chữ." })
-        val hex = EditText(this).apply { hint = "Mã màu #RRGGBB"; setSingleLine() }
+        val preview = StampOverlayView(this)
+        col.addView(preview, LinearLayout.LayoutParams(-1, dp(240)))
+        col.addView(TextView(this).apply { text = "Chỉnh trực tiếp theo hình xem thử. 0% độ đậm là trong suốt hoàn toàn." })
+        val hex = EditText(this).apply { hint = "Màu nền #RRGGBB"; setSingleLine(); setText("#" + (sp.getString("stampBackgroundHex", StampSettings.DEFAULT_HEX) ?: StampSettings.DEFAULT_HEX)) }
         col.addView(hex)
-        val rgb = (0..2).map { SeekBar(this).apply { max = 255 } }
-        val opacity = SeekBar(this).apply { max = 60 }
-        val opacityLabel = TextView(this)
+        fun slider(title: String, maxValue: Int, initial: Int): Pair<SeekBar, TextView> {
+            val label = TextView(this); val bar = SeekBar(this).apply { max = maxValue; progress = initial }
+            col.addView(label); col.addView(bar)
+            label.text = title
+            return bar to label
+        }
+        val (sizeBar, sizeLabel) = slider("Cỡ dấu", 70, ((StampSettings.appearance(sp).size - .5f) * 100).toInt())
+        val quick = LinearLayout(this)
+        for ((title, value) in listOf("Rất nhỏ" to 0, "Gọn" to 25, "Lớn" to 50)) quick.addView(Button(this).apply { text = title; setOnClickListener { sizeBar.progress = value } }, LinearLayout.LayoutParams(0, -2, 1f))
+        col.addView(quick)
+        val (opacity, opacityLabel) = slider("Độ đậm nền", 100, (sp.getFloat("stampBackgroundOpacity", .75f) * 100).toInt().coerceIn(0, 100))
+        val (logoOpacity, logoLabel) = slider("Độ đậm logo", 100, (StampSettings.appearance(sp).logoOpacity * 100).toInt())
+        val removeWhite = CheckBox(this).apply { text = "Ẩn nền trắng của logo (giữ tệp gốc)"; isChecked = sp.getBoolean("stampLogoRemoveWhiteBackground", false) }
+        col.addView(removeWhite)
+        var previewLogo = originalLogo()
+        var cutoutLogo = previewLogo?.let { LogoProcessing.removeWhite(it) }
         fun update() {
-            val alpha = opacity.progress + 40
-            val value = Color.rgb(rgb[0].progress, rgb[1].progress, rgb[2].progress)
-            hex.setText(String.format(Locale.US, "#%06X", value and 0xFFFFFF))
-            opacityLabel.text = "Độ đậm nền: $alpha%"
-            preview.background = GradientDrawable().apply { setColor(Color.argb(alpha * 255 / 100, Color.red(value), Color.green(value), Color.blue(value))); cornerRadius = dp(8).toFloat() }
+            val color = runCatching { Color.parseColor("#" + hex.text.toString().trim().removePrefix("#")) }.getOrDefault(StampSettings.background(sp))
+            val size = (sizeBar.progress + 50) / 100f
+            sizeLabel.text = "Cỡ dấu: "+(sizeBar.progress + 50)+"%"
+            opacityLabel.text = "Độ đậm nền: "+opacity.progress+"%"
+            logoLabel.text = "Độ đậm logo: "+logoOpacity.progress+"%"
+            val now = Date(); val content = lines(now)
+            preview.stamp = Stamp(content.head, content.date, content.rows + "Mã xác thực: 12345678")
+            preview.logo = (if (removeWhite.isChecked) cutoutLogo else previewLogo)?.takeIf { b("logoOn") }
+            preview.appearance = StampAppearance(Color.argb(opacity.progress * 255 / 100, Color.red(color), Color.green(color), Color.blue(color)), size, logoOpacity.progress / 100f)
+            preview.invalidate()
         }
         val listener = object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) update() }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) { update() }
+            override fun onStartTrackingTouch(bar: SeekBar?) {}
+            override fun onStopTrackingTouch(bar: SeekBar?) {}
         }
-        fun choose(color: Int, alpha: Int) {
-            rgb[0].progress = Color.red(color); rgb[1].progress = Color.green(color); rgb[2].progress = Color.blue(color)
-            opacity.progress = (alpha - 40).coerceIn(0, 60); update()
-        }
-        rgb.forEachIndexed { i, bar ->
-            col.addView(TextView(this).apply { text = listOf("Đỏ", "Lục", "Lam")[i] }); col.addView(bar); bar.setOnSeekBarChangeListener(listener)
-        }
-        col.addView(opacityLabel); col.addView(opacity); opacity.setOnSeekBarChangeListener(listener)
-        col.addView(Button(this).apply { text = "Xem màu theo mã đã nhập"; setOnClickListener {
-            val code = hex.text.toString().trim().removePrefix("#")
-            if (!code.matches(Regex("[0-9a-fA-F]{6}"))) hex.error = "Nhập 6 ký tự màu, ví dụ #0E1A24"
-            else choose(Color.parseColor("#$code"), opacity.progress + 40)
-        } })
-        val initial = StampSettings.background(sp)
-        choose(initial, (sp.getFloat("stampBackgroundOpacity", StampSettings.DEFAULT_OPACITY).coerceIn(.4f, 1f) * 100).toInt())
-        val dialog = AlertDialog.Builder(this).setTitle("Nền khung thông tin").setView(ScrollView(this).apply { addView(col) })
-            .setPositiveButton("Lưu", null).setNegativeButton("Huỷ", null).setNeutralButton("Mặc định", null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val code = hex.text.toString().trim().removePrefix("#")
-                if (!code.matches(Regex("[0-9a-fA-F]{6}"))) hex.error = "Nhập 6 ký tự màu, ví dụ #0E1A24"
-                else {
-                    sp.edit().putString("stampBackgroundHex", code.uppercase(Locale.US))
-                        .putFloat("stampBackgroundOpacity", (opacity.progress + 40) / 100f).apply()
-                    refresh(); dialog.dismiss()
-                }
+        listOf(sizeBar, opacity, logoOpacity).forEach { it.setOnSeekBarChangeListener(listener) }
+        removeWhite.setOnCheckedChangeListener { _, _ -> update() }
+        col.addView(Button(this).apply { text = "Xem thử màu đã nhập"; setOnClickListener { update() } })
+        update()
+        val dialog = AlertDialog.Builder(this).setTitle("Cỡ dấu, nền và logo").setView(ScrollView(this).apply { addView(col) })
+            .setPositiveButton("Lưu", null).setNegativeButton("Huỷ", null).create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val value = hex.text.toString().trim().removePrefix("#")
+            if (!value.matches(Regex("[0-9a-fA-F]{6}"))) hex.error = "Nhập 6 ký tự màu, ví dụ #576145"
+            else {
+                sp.edit().putString("stampBackgroundHex", value.uppercase(Locale.US))
+                    .putFloat("stampBackgroundOpacity", opacity.progress / 100f)
+                    .putFloat("stampDisplaySize", (sizeBar.progress + 50) / 100f)
+                    .putFloat("stampLogoOpacity", logoOpacity.progress / 100f)
+                    .putBoolean("stampLogoRemoveWhiteBackground", removeWhite.isChecked).apply()
+                loadLogo(); refresh(); dialog.dismiss()
             }
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { choose(0xFF0E1A24.toInt(), 60) }
-        }
+        } }
         dialog.show()
     }
 
     private fun settings() {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
-        col.addView(Button(this).apply { text = "Màu và độ đậm nền khung thông tin"; setOnClickListener { backgroundSettings() } })
+        col.addView(Button(this).apply { text = "Cỡ dấu, màu nền và logo trong suốt"; setOnClickListener { backgroundSettings() } })
         val fields = listOf("proj" to "Tên nhiệm vụ / công việc", "addr" to "Địa chỉ (để trống = tự lấy theo GPS)", "note" to "Ghi chú", "wm" to "Watermark chìm (tên công ty…)") + (1..4).flatMap { listOf("f${it}l" to "Nhãn trường $it (VD: Tên)", "f${it}v" to "Nội dung trường $it (VD: Đạt)") }
         val ets = fields.map { (k, hint) -> EditText(this).apply { this.hint = hint; setText(s(k)); setSingleLine() }.also { col.addView(it) } }
         val cbs = boolKeys.map { (k, t) -> CheckBox(this).apply { text = t; isChecked = b(k) }.also { col.addView(it) } }
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row.addView(Button(this).apply { text = if (logoBmp == null) "Chọn logo" else "Đổi logo"; setOnClickListener { pickLogo.launch("image/*") } })
-        row.addView(Button(this).apply { text = "Xoá logo"; setOnClickListener { File(filesDir, "logo.png").delete(); logoBmp = null; refresh(); toast("Đã xoá logo") } })
+        row.addView(Button(this).apply { text = "Xoá logo"; setOnClickListener { File(filesDir, "logo.png").delete(); loadLogo(); refresh(); toast("Đã trở về logo mặc định") } })
         col.addView(row)
         col.addView(Button(this).apply { text = "Thông tin Datvip Cam"; setOnClickListener { showAppInfo() } })
         AlertDialog.Builder(this).setTitle("Cài đặt dấu ảnh").setView(ScrollView(this).apply { addView(col) })
@@ -909,7 +809,15 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         return Bitmap.createBitmap(bitmap, bounds[0], bounds[1], bounds[2], bounds[3])
     }
 
-    private fun loadLogo() { val f = File(filesDir, "logo.png"); logoBmp = if (f.exists()) BitmapFactory.decodeFile(f.path)?.let { trimLogo(it) } else null }
+    private fun originalLogo(): Bitmap? {
+        val file = File(filesDir, "logo.png")
+        return (if (file.exists()) BitmapFactory.decodeFile(file.path) else null)
+            ?: BitmapFactory.decodeResource(resources, R.drawable.default_antt_logo, BitmapFactory.Options().apply { inSampleSize = 2; inScaled = false })
+    }
+    private fun loadLogo() {
+        val original = originalLogo()
+        logoBmp = original?.let { if (sp.getBoolean("stampLogoRemoveWhiteBackground", false)) LogoProcessing.removeWhite(it) else trimLogo(it) }
+    }
     private fun saveLogo(uri: Uri) {
         try {
             val opt = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -921,17 +829,6 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             loadLogo(); refresh(); toast("Đã đặt logo")
         } catch (e: Exception) { toast("Không đọc được ảnh logo") }
     }
-    private fun updateLogoView() {
-        val lg = logoBmp
-        if (lg == null || !b("logoOn")) { panelLogo.visibility = View.GONE; return }
-        val u = pxUnit; var h = u * 9f; var w = lg.width * h / lg.height
-        if (w > u * 24f) { w = u * 24f; h = w * lg.height / lg.width }
-        val pad = 0; val nw = maxOf(1, w.toInt()); val nh = maxOf(1, h.toInt())
-        val lp = panelLogo.layoutParams as LinearLayout.LayoutParams
-        if (lp.width != nw || lp.height != nh) { lp.width = nw; lp.height = nh; panelLogo.layoutParams = lp; panelLogo.setPadding(pad, pad, pad, pad) }
-        if (panelLogo.tag !== lg) { panelLogo.setImageBitmap(lg); panelLogo.tag = lg }
-        panelLogo.visibility = View.VISIBLE
-    }
     private fun applyRotation() {
         val w = frame.width; val h = frame.height
         if (w == 0 || h == 0) return
@@ -941,8 +838,6 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (lp.width != nw || lp.height != nh) { lp.width = nw; lp.height = nh; layer.layoutParams = lp }
         layer.animate().rotation(curDeg.toFloat()).setDuration(150).start()
         pxUnit = minOf(w, h) / 100f
-        val pl = panel.layoutParams as FrameLayout.LayoutParams; val m = (pxUnit * 3).toInt()
-        pl.setMargins(m, 0, m, m); panel.layoutParams = pl
         refresh()
     }
     private fun quickNote() {
@@ -979,7 +874,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         redraw = {
             saved.removeAllViews()
             val templates = NotePresets.load(sp)
-            saved.addView(TextView(this).apply { text = "Mẫu đã lưu (${templates.size}/10)"; typeface = Typeface.DEFAULT_BOLD })
+            saved.addView(TextView(this).apply { text = "Mẫu đã lưu (${templates.size}/20)"; typeface = Typeface.DEFAULT_BOLD })
             templates.forEach { template -> saved.addView(Button(this).apply {
                 text = template.name
                 setOnClickListener {
@@ -1008,11 +903,11 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             setOnClickListener {
                 val values = draft()
                 if (values.values.all { it.isBlank() }) toast("Hãy nhập nội dung trước khi lưu mẫu")
-                else if (NotePresets.load(sp).size >= 10) toast("Đã đủ 10 mẫu. Hãy cập nhật hoặc xoá một mẫu")
+                else if (NotePresets.load(sp).size >= 20) toast("Đã đủ 20 mẫu. Hãy cập nhật hoặc xoá một mẫu")
                 else askName(values["note"].orEmpty().ifEmpty { values["proj"].orEmpty() }.take(40)) { title ->
                     val templates = NotePresets.load(sp)
                     if (templates.any { it.name.equals(title, true) }) toast("Tên mẫu đã có")
-                    else if (templates.size < 10) { NotePresets.save(sp, templates + NotePreset(UUID.randomUUID().toString(), title, values)); redraw(); toast("Đã lưu mẫu") }
+                    else if (templates.size < 20) { NotePresets.save(sp, templates + NotePreset(UUID.randomUUID().toString(), title, values)); redraw(); toast("Đã lưu mẫu") }
                 }
             }
         })
