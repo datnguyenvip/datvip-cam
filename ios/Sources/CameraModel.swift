@@ -49,6 +49,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private var recStartDate = Date()
     private var recLoc: CLLocation?
     private var recCode = ""
+    @Published private var previewVerificationCode = ""
     private var cropRect = CGRect.zero
     private var outSize = CGSize.zero
     private var overlayCI: CIImage?
@@ -162,6 +163,8 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             if let conn = self.videoOut.connection(with: .video), conn.isVideoOrientationSupported { conn.videoOrientation = self.avOrientation(o) }
             self.recURL = FileManager.default.temporaryDirectory.appendingPathComponent("rec_\(UUID().uuidString).mp4")
             self.recStartDate = Date(); self.recLoc = l; self.recCode = self.code(self.recStartDate, l)
+            let activeCode = self.recCode
+            DispatchQueue.main.async { self.previewVerificationCode = activeCode }
             self.recWriterReady = false; self.overlayCI = nil; self.lastOverlay = .distantPast
             self.recording = true
         }
@@ -334,7 +337,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     func previewLines(_ d: Date) -> StampLines {
         var content = lines(d, loc)
         // Include the verification row when measuring preview, just as exports do.
-        content.rows.append("Mã xác thực: " + (isRecording && !recCode.isEmpty ? recCode : code(d, loc)))
+        content.rows.append("Mã xác thực: " + (isRecording && !previewVerificationCode.isEmpty ? previewVerificationCode : code(d, loc)))
         return content
     }
     private func code(_ d: Date, _ l: CLLocation?) -> String {
