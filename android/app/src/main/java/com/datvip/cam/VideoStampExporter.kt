@@ -11,6 +11,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.Effects
@@ -71,7 +72,7 @@ class VideoStampExporter {
             if (landscape) 4f / 3f else 3f / 4f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input)))
-            .setEffects(Effects(emptyList(), listOf(crop, OverlayEffect(ImmutableList.of(overlay)))))
+            .setEffects(Effects(emptyList(), listOf(crop, OverlayEffect(ImmutableList.of<TextureOverlay>(overlay)))))
             .build()
         val instance = Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)

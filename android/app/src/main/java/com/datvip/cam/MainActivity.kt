@@ -98,7 +98,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class Stamp(val head: String?, val date: String?, val rows: List<String>)
-class Row(val t: String, val s: Float, val bold: Boolean, val col: Int)
 class Item(val uri: Uri, val time: Long, val video: Boolean = false) { var lat: Double? = null; var lon: Double? = null; var sel = false }
 
 @UnstableApi
@@ -126,17 +125,12 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private fun videoBusy() = recordPending || recording != null || videoProcessing
     private lateinit var pv: PreviewView
     private lateinit var stampOverlay: StampOverlayView
-    private lateinit var ov: TextView
     private lateinit var gpsTv: TextView
     private lateinit var stage: FrameLayout
     private lateinit var frame: FrameLayout
     private lateinit var layer: FrameLayout
-    private lateinit var panelLogo: ImageView
-    private lateinit var sideTv: TextView
-    private lateinit var panel: LinearLayout
     private var lastShare = ""
     private var lastName = ""
-    private lateinit var logoIv: ImageView
     private var logoBmp: Bitmap? = null
     private var pxUnit = 4f
     private var curDeg = 0
@@ -296,6 +290,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         bar.addView(cell(flipCamera, 52), one())
         bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast("Hãy đợi lưu video") }, 52), one())
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
