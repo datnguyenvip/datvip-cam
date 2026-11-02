@@ -131,7 +131,7 @@ struct ContentView: View {
         let height = land ? fw : fh
         let density = UIScreen.main.scale
         let image = m.overlayImage(CGSize(width: width * density, height: height * density),
-                                   m.lines(d, m.loc))
+                                   m.previewLines(d))
         return Image(uiImage: image).resizable()
             .frame(width: width, height: height)
             .rotationEffect(.degrees(angle))

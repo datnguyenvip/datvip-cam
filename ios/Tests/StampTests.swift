@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import Vision
+import CoreLocation
 
 final class StampTests: XCTestCase {
     private var saved: [String: Any] = [:]
@@ -117,12 +118,16 @@ final class StampTests: XCTestCase {
                     add(attachment)
                     let observations = try recognize(image)
                     let markers = ["TASK ALPHA", "PLACE BRAVO", "22:58:52", "01/11/2026", "GPS DELTA", "TEAM ECHO"]
-                    var previousY: CGFloat = 2
-                    for marker in markers {
-                        let match = try XCTUnwrap(observations.first { $0.0.contains(marker) }, "Missing \(marker): \(observations)")
-                        XCTAssertLessThan(match.1.midY, previousY, "Wrong visual order for \(marker)")
-                        previousY = match.1.midY
+                    let boxes = try markers.map { marker in
+                        try XCTUnwrap(observations.first { $0.0.contains(marker) }, "Missing \(marker): \(observations)").1
                     }
+                    XCTAssertGreaterThan(boxes[0].midY, boxes[1].midY)
+                    for clockIndex in [2, 3] {
+                        XCTAssertGreaterThan(boxes[1].midY, boxes[clockIndex].midY)
+                        XCTAssertGreaterThan(boxes[clockIndex].midY, boxes[4].midY)
+                    }
+                    XCTAssertGreaterThan(boxes[4].midY, boxes[5].midY)
+
                 }
             }
         }
@@ -176,5 +181,90 @@ final class StampTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
         XCTAssertEqual(content.orderedBody.map(\.role), [.place, .time, .date, .address, .custom, .detail])
+    }
+
+    func testAdaptiveCornerAndFooterGeometry() throws {
+        for size in [CGSize(width: 1200, height: 1600), CGSize(width: 1600, height: 1200)] {
+            for logoSize in [nil, CGSize(width: 240, height: 185), CGSize(width: 900, height: 80), CGSize(width: 80, height: 900)] as [CGSize?] {
+                var content = sample()
+                content.rows = ["Mã xác thực: 12345678"]
+                let small = StampLayout.make(size: size, content: content, logoSize: logoSize)
+                XCTAssertEqual(small.mode, .corner)
+                XCTAssertLessThanOrEqual(small.rect.width, size.width / 2)
+                XCTAssertLessThanOrEqual(small.rect.height, size.height / 2)
+                XCTAssertEqual(small.rect.maxY, size.height - min(size.width, size.height) * 0.03, accuracy: 0.1)
+                XCTAssertGreaterThan(small.rect.minX, 0)
+                XCTAssertTrue(small.texts.allSatisfy { small.rect.insetBy(dx: -0.1, dy: -0.1).contains($0.rect) })
+                for i in small.texts.indices {
+                    for j in small.texts.indices where j > i {
+                        XCTAssertFalse(small.texts[i].rect.intersects(small.texts[j].rect), "Text blocks overlap")
+                    }
+                }
+                if let logo = small.logoRect {
+                    XCTAssertTrue(small.texts.allSatisfy { !logo.intersects($0.rect) })
+                }
+                content.custom[1] += String(repeating: " nhiều nội dung địa điểm", count: 30)
+                content.address! += String(repeating: " địa chỉ đường rất dài", count: 30)
+                content.rows += (1...8).map { "Thông tin \($0): " + String(repeating: "chi tiết bổ sung ", count: 4) }
+                let large = StampLayout.make(size: size, content: content, logoSize: logoSize)
+                XCTAssertEqual(large.mode, .footer)
+                XCTAssertGreaterThan(large.rect.width, size.width * 0.9)
+                XCTAssertGreaterThanOrEqual(large.rect.minY, 0)
+                XCTAssertTrue(large.texts.allSatisfy { large.rect.insetBy(dx: -0.1, dy: -0.1).contains($0.rect) })
+                XCTAssertEqual(large.texts.count, content.orderedBody.count + 1, "Do not drop content to fit")
+            }
+        }
+    }
+
+    func testTelemetryTogglesRecalculateLayout() {
+        let model = CameraModel()
+        model.autoAddr = "175, Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh"
+        NotePreset.builtIn[0].apply()
+        UserDefaults.standard.set(String(repeating: "Thông tin nhiệm vụ bổ sung ", count: 10), forKey: "note")
+        let location = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 10.879036, longitude: 106.72466),
+                                  altitude: 27, horizontalAccuracy: 6, verticalAccuracy: 3, timestamp: Date())
+        model.heading = 190
+        let size = CGSize(width: 1200, height: 1600)
+        let logo = LogoImage.load()
+        let enabled = model.lines(Date(), location)
+        XCTAssertTrue(enabled.rows.contains { $0.hasPrefix("📍") })
+        XCTAssertTrue(enabled.rows.contains { $0.hasPrefix("Độ cao") })
+        XCTAssertTrue(enabled.rows.contains { $0.hasPrefix("Hướng") })
+        let before = StampLayout.make(size: size, content: enabled, logoSize: logo?.size)
+        for key in ["gps", "alt", "hdg"] { UserDefaults.standard.set(false, forKey: key) }
+        let disabled = model.lines(Date(), location)
+        XCTAssertFalse(disabled.rows.contains { $0.hasPrefix("📍") || $0.hasPrefix("Độ cao") || $0.hasPrefix("Hướng") })
+        XCTAssertEqual(disabled.address, enabled.address, "GPS address is independent of coordinates toggle")
+        let after = StampLayout.make(size: size, content: disabled, logoSize: logo?.size)
+        if before.mode == after.mode { XCTAssertLessThan(after.rect.height, before.rect.height) }
+        else { XCTAssertEqual(after.mode, .corner) }
+    }
+
+    func testAdaptiveEvidenceAndPreviewScale() {
+        let model = CameraModel()
+        NotePreset.builtIn[0].apply()
+        model.autoAddr = "175, Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh"
+        var content = model.lines(Date(), nil)
+        content.head = "09:32:54"; content.date = "Thứ Hai, 02/11/2026 (GMT+7)"
+        content.rows = ["Mã xác thực: 6E4D10FE"]
+        for dense in [false, true] {
+            var fixture = content
+            if dense {
+                fixture.custom += ["Nội dung: " + String(repeating: "Kiểm tra bảo vệ hiện trường. ", count: 12)]
+                fixture.rows += ["📍 Vĩ độ 10.879036, Kinh độ 106.72466 (±6m)", "Độ cao 27 m", "Hướng 190° N"]
+            }
+            for size in [CGSize(width: 1200, height: 1600), CGSize(width: 1600, height: 1200)] {
+                let image = model.overlayImage(size, fixture)
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "adaptive-dense-\(dense)-width-\(Int(size.width))"
+                attachment.lifetime = .keepAlways; add(attachment)
+                let logo = LogoImage.load()?.size
+                let exported = StampLayout.make(size: size, content: fixture, logoSize: logo)
+                let preview = StampLayout.make(size: CGSize(width: size.width / 3, height: size.height / 3), content: fixture, logoSize: logo)
+                XCTAssertEqual(exported.mode, preview.mode)
+                XCTAssertEqual(exported.rect.width / size.width, preview.rect.width / (size.width / 3), accuracy: 0.01)
+                XCTAssertEqual(exported.rect.height / size.height, preview.rect.height / (size.height / 3), accuracy: 0.02)
+            }
+        }
     }
 }

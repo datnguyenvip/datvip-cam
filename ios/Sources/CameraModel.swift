@@ -7,7 +7,6 @@ import ImageIO
 import Photos
 import UniformTypeIdentifiers
 
-struct Row { let t: String; let size: CGFloat; let bold: Bool; let color: UIColor }
 struct PhotoRec: Codable, Identifiable { var file: String; var time: Date; var lat: Double?; var lon: Double?; var video: Bool? = nil; var id: String { file } }
 
 extension UIImage {
@@ -332,6 +331,12 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if !str("note").isEmpty { rows.append("Ghi chú: " + str("note")) }
         return StampLines(head: head, date: date, project: project, address: address, custom: custom, rows: rows)
     }
+    func previewLines(_ d: Date) -> StampLines {
+        var content = lines(d, loc)
+        // Include the verification row when measuring preview, just as exports do.
+        content.rows.append("Mã xác thực: " + (isRecording && !recCode.isEmpty ? recCode : code(d, loc)))
+        return content
+    }
     private func code(_ d: Date, _ l: CLLocation?) -> String {
         let raw = "\(Int(d.timeIntervalSince1970 * 1000))|" + (l.map { String(format: "%.6f,%.6f", $0.coordinate.latitude, $0.coordinate.longitude) } ?? "-")
         return SHA256.hash(data: Data(raw.utf8)).prefix(4).map { String(format: "%02X", $0) }.joined()
@@ -356,11 +361,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
 
     // MARK: Vẽ dấu lên ảnh
-    private func style(_ t: String, _ u: CGFloat) -> Row {
-        if t.hasPrefix("📍") { return Row(t: t, size: u * 3.2, bold: false, color: .white) }
-        if t.hasPrefix("Mã xác thực") { return Row(t: t, size: u * 2.6, bold: false, color: UIColor(white: 0.65, alpha: 1)) }
-        return Row(t: t, size: u * 3.2, bold: false, color: UIColor(white: 0.92, alpha: 1))
-    }
     func stamp(_ img: UIImage, _ L: StampLines) -> UIImage {
         let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
         return UIGraphicsImageRenderer(size: img.size, format: fmt).image { ctx in
@@ -377,8 +377,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private func drawStamp(_ c: CGContext, _ size: CGSize, _ L: StampLines) {
         let w = size.width, h = size.height, u = min(w, h) / 100
         guard w > 0, h > 0 else { return }
-        let orange = UIColor(red: 1, green: 0.64, blue: 0.36, alpha: 1)
-        let yellow = UIColor(red: 1, green: 0.82, blue: 0.25, alpha: 1)
 
         // Watermark remains independent of the information panel.
         if flag("wmOn"), !str("wm").isEmpty {
@@ -406,86 +404,9 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         }
 
         let logo = flag("logoOn") ? LogoImage.load() : nil
-       
-        let entries: [Row] = L.orderedBody.map { entry in
-            switch entry.role {
-            case .place, .address:
-                return Row(t: entry.text, size: u * 3.4, bold: true, color: .white)
-            case .time:
-                return Row(t: entry.text, size: u * 7.5, bold: true, color: yellow)
-            case .date:
-                return Row(t: entry.text, size: u * 3.4, bold: false, color: .white)
-            case .custom:
-                return Row(t: entry.text, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1))
-            case .detail:
-                return style(entry.text, u)
-            }
-        }
-
-        let project = L.project ?? ""
-        if logo == nil && project.isEmpty && entries.isEmpty { return }
-
-        let margin = u * 3, padding = u * 2.8, bar = u * 1.4, gap = u * 1.8
-        let panelWidth = w - margin * 2
-        let textWidth = max(1, panelWidth - bar - padding * 2)
-        let maxPanelHeight = max(u * 5, h - margin * 2)
-
-        func font(_ row: Row, _ scale: CGFloat) -> UIFont {
-            let pointSize = max(1, row.size * scale)
-            return row.bold ? UIFont.boldSystemFont(ofSize: pointSize) : UIFont.systemFont(ofSize: pointSize)
-        }
-        func measure(_ text: String, _ font: UIFont, _ width: CGFloat) -> CGFloat {
-            guard !text.isEmpty else { return 0 }
-            let p = NSMutableParagraphStyle()
-            p.lineBreakMode = .byWordWrapping
-            let attributes: [NSAttributedString.Key: Any] = [.font: font, .paragraphStyle: p]
-            let bounds = (text as NSString).boundingRect(
-                with: CGSize(width: max(1, width), height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: attributes,
-                context: nil
-            )
-            return ceil(bounds.height) + u * 0.15
-        }
-        func drawText(_ text: String, in rect: CGRect, font: UIFont, color: UIColor) {
-            let p = NSMutableParagraphStyle()
-            p.lineBreakMode = .byWordWrapping
-            (text as NSString).draw(
-                with: rect,
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: [.font: font, .foregroundColor: color, .paragraphStyle: p],
-                context: nil
-            )
-        }
-        func layout(_ scale: CGFloat) -> (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, [CGFloat]) {
-            var logoH: CGFloat = 0, logoW: CGFloat = 0
-            if let image = logo, image.size.width > 0, image.size.height > 0 {
-                logoH = u * 9 * scale
-                logoW = min(u * 24 * scale, image.size.width * logoH / image.size.height)
-                logoH = logoW * image.size.height / image.size.width
-            }
-            let projectW = max(1, textWidth - (logo == nil ? 0 : logoW + gap))
-            let projectH = measure(project, UIFont.boldSystemFont(ofSize: max(1, u * 3.8 * scale)), projectW)
-            let headerH = max(logoH, projectH)
-            let heights = entries.map { measure($0.t, font($0, scale), textWidth) }
-            let rowGap = u * 0.65 * scale
-            let headerGap = headerH > 0 && !entries.isEmpty ? u * 1.1 * scale : 0
-            let total = padding * 2 + headerH + headerGap
-                + heights.reduce(0, +) + CGFloat(max(0, entries.count - 1)) * rowGap
-            return (total, logoW, logoH, projectW, headerH + headerGap, heights)
-        }
-
-        var scale: CGFloat = 1
-        var dimensions = layout(scale)
-        // Shrink all text proportionally when many fields are enabled.
-        while dimensions.0 > maxPanelHeight && scale > 0.15 {
-            scale *= 0.9
-            dimensions = layout(scale)
-        }
-        let panelHeight = min(maxPanelHeight, dimensions.0)
-        let rect = CGRect(x: margin, y: h - margin - panelHeight, width: panelWidth, height: panelHeight)
-        let path = UIBezierPath(roundedRect: rect, cornerRadius: u * 1.6)
-
+        guard logo != nil || L.project != nil || !L.orderedBody.isEmpty else { return }
+        let layout = StampLayout.make(size: size, content: L, logoSize: logo?.size)
+        let path = UIBezierPath(roundedRect: layout.rect, cornerRadius: u * 1.6)
         c.saveGState()
         c.setShadow(offset: CGSize(width: 0, height: u * 0.3), blur: u * 1.2,
                     color: UIColor(white: 0, alpha: 0.5).cgColor)
@@ -496,26 +417,14 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         c.saveGState()
         path.addClip()
         UIColor(red: 1, green: 0.42, blue: 0.10, alpha: 1).setFill()
-        UIRectFill(CGRect(x: rect.minX, y: rect.minY, width: bar, height: rect.height))
-
-        let x = rect.minX + bar + padding
-        var y = rect.minY + padding
-        if let image = logo, dimensions.1 > 0, dimensions.2 > 0 {
-            image.draw(in: CGRect(x: x, y: y, width: dimensions.1, height: dimensions.2))
-        }
-        if !project.isEmpty {
-            let projectX = x + (logo == nil ? 0 : dimensions.1 + gap)
-            let projectH = measure(project, UIFont.boldSystemFont(ofSize: max(1, u * 3.8 * scale)), dimensions.3)
-            drawText(project,
-                     in: CGRect(x: projectX, y: y, width: dimensions.3, height: projectH),
-                     font: UIFont.boldSystemFont(ofSize: max(1, u * 3.8 * scale)), color: orange)
-        }
-        y += dimensions.4
-        for (index, entry) in entries.enumerated() {
-            let height = dimensions.5[index]
-            drawText(entry.t, in: CGRect(x: x, y: y, width: textWidth, height: height),
-                     font: font(entry, scale), color: entry.color)
-            y += height + u * 0.65 * scale
+        UIRectFill(CGRect(x: layout.rect.minX, y: layout.rect.minY, width: u * 1.4, height: layout.rect.height))
+        if let logo = logo, let rect = layout.logoRect { logo.draw(in: rect) }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        for text in layout.texts {
+            (text.value as NSString).draw(with: text.rect,
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: text.font, .foregroundColor: text.color, .paragraphStyle: paragraph], context: nil)
         }
         c.restoreGState()
     }
