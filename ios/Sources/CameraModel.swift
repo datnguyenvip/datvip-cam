@@ -374,7 +374,14 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
         return UIGraphicsImageRenderer(size: size, format: fmt).image { ctx in self.drawStamp(ctx.cgContext, size, L) }
     }
-    private func drawStamp(_ c: CGContext, _ size: CGSize, _ L: StampLines) {
+    private func drawStamp(_ c: CGContext, _ canvas: CGSize, _ L: StampLines) {
+        let factor = min(canvas.width, canvas.height) / 1200
+        guard factor > 0 else { return }
+        // Measure and draw text at the same design size at every output resolution.
+        c.saveGState()
+        defer { c.restoreGState() }
+        c.scaleBy(x: factor, y: factor)
+        let size = CGSize(width: canvas.width / factor, height: canvas.height / factor)
         let w = size.width, h = size.height, u = min(w, h) / 100
         guard w > 0, h > 0 else { return }
 

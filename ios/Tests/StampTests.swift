@@ -119,7 +119,13 @@ final class StampTests: XCTestCase {
                     let observations = try recognize(image)
                     let markers = ["TASK ALPHA", "PLACE BRAVO", "22:58:52", "01/11/2026", "GPS DELTA", "TEAM ECHO"]
                     let boxes = try markers.map { marker in
-                        try XCTUnwrap(observations.first { $0.0.contains(marker) }, "Missing \(marker): \(observations)").1
+                        // A valid compact layout may wrap a marker across two lines.
+                        var bounds: CGRect?
+                        for word in marker.split(separator: " ") {
+                            let match = try XCTUnwrap(observations.first { $0.0.contains(String(word)) }, "Missing \(word): \(observations)")
+                            bounds = bounds.map { $0.union(match.1) } ?? match.1
+                        }
+                        return try XCTUnwrap(bounds)
                     }
                     XCTAssertGreaterThan(boxes[0].midY, boxes[1].midY)
                     for clockIndex in [2, 3] {

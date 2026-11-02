@@ -16,6 +16,21 @@ struct StampLayout {
     var texts: [Text]
 
     static func make(size: CGSize, content: StampLines, logoSize: CGSize?) -> StampLayout {
+        let factor = min(size.width, size.height) / 1200
+        guard factor > 0 else { return StampLayout(mode: .corner, rect: .zero, logoRect: nil, texts: []) }
+        var result = resolve(size: CGSize(width: size.width / factor, height: size.height / factor),
+                             content: content, logoSize: logoSize)
+        let transform = CGAffineTransform(scaleX: factor, y: factor)
+        result.rect = result.rect.applying(transform)
+        result.logoRect = result.logoRect?.applying(transform)
+        result.texts = result.texts.map {
+            Text(value: $0.value, role: $0.role, font: $0.font.withSize($0.font.pointSize * factor),
+                 color: $0.color, rect: $0.rect.applying(transform))
+        }
+        return result
+    }
+
+    private static func resolve(size: CGSize, content: StampLines, logoSize: CGSize?) -> StampLayout {
         let u = min(size.width, size.height) / 100
         let margin = 3 * u
         let availableWidth = size.width - 2 * margin
