@@ -147,7 +147,7 @@ class StampSettingsScreen(
     }
     fun createContent(close: () -> Unit = {}): View {
         NotePresets.installDefaults(preferences)
-        val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFF0B141B.toInt()) }
+        val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFF0B141B.toInt()); isFocusableInTouchMode = true }
         val toolbar = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(12), dp(8)) }
         toolbar.addView(text(if (quick) "Ghi chú nhanh" else "Cài đặt dấu ảnh", 20f, true), LinearLayout.LayoutParams(0, -2, 1f))
         toolbar.addView(button("Xong", close).apply { contentDescription = "Đóng cài đặt" }); root.addView(toolbar)
@@ -221,6 +221,7 @@ class StampSettingsScreen(
             }) }; saveColor()
             appearance.addView(button("Khôi phục nền mặc định") { updateRgb(0xFF576145.toInt()); opacity.progress = 75 })
             val previewBox = FrameLayout(context)
+            appearance.addView(text("Xem thử bố cục — dữ liệu minh hoạ"))
             val preview = StampOverlayView(context).apply { background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.GRAY, 0xFF263C4A.toInt(), Color.BLACK)) }
             previews.add(preview)
             previewBox.addView(preview, FrameLayout.LayoutParams(dp(210), dp(280), Gravity.CENTER))
@@ -237,13 +238,14 @@ class StampSettingsScreen(
             for ((key, label) in listOf("time" to "Ngày giờ", "gps" to "Toạ độ GPS", "alt" to "Độ cao", "hdg" to "Hướng la bàn", "wmOn" to "Watermark chìm", "shutterSound" to "Tiếng chụp ảnh")) toggle(show, key, label)
             section("Ứng dụng").addView(button("Thông tin và phiên bản", about))
         }
-        refreshPreview(); return root
+        root.requestFocus(); refreshPreview(); return root
     }
     fun show() {
         val dialog = Dialog(context, android.R.style.Theme_Material_NoActionBar)
         val root = createContent { dialog.dismiss() }
         dialog.setContentView(root)
         dialog.window?.let { window ->
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             WindowCompat.setDecorFitsSystemWindows(window, false)
             ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
                 val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())

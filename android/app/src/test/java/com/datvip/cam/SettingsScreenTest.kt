@@ -22,7 +22,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [36], qualifiers = "w360dp-h740dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SettingsScreenTest {
     @Test fun allFourRequestedFeaturesAreReachableAndSaveChanges() {
@@ -34,6 +34,7 @@ class SettingsScreenTest {
         val screen = StampSettingsScreen(context, prefs, logo = { selectedLogo })
         val root = screen.createContent()
         context.setContentView(root)
+        assertSame(root, root.findFocus())
         for (shortcut in listOf("Khung", "Nền", "Logo", "Mẫu")) assertNotNull(root.findViewWithTag<Button>("shortcut-$shortcut"))
         val size = root.findViewWithTag<SeekBar>("stampDisplaySize")
         assertNotNull(size); size.progress = 0
@@ -66,17 +67,19 @@ class SettingsScreenTest {
             android.graphics.BitmapFactory.Options().apply { inSampleSize = 2; inScaled = false })
         val root = StampSettingsScreen(context, prefs, logo = { logo }).createContent()
         context.setContentView(root)
-        root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY))
-        root.layout(0, 0, 1080, 1920)
         val directory = File("build/reports/settings-images").apply { mkdirs() }
-        val image = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
-        root.draw(Canvas(image))
-        File(directory, "settings-top.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        fun snapshot(name: String) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue(root.width > 0 && root.height > 0)
+            val image = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+            root.draw(Canvas(image))
+            File(directory, "settings-$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        snapshot("top")
         for ((label, name) in listOf("Khung" to "frame", "Logo" to "logo")) {
             root.findViewWithTag<Button>("shortcut-$label").performClick()
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
-            root.draw(Canvas(image))
-            File(directory, "settings-$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            snapshot(name)
         }
         controller.pause().stop().destroy()
     }
