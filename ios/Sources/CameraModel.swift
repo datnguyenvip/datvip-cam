@@ -8,7 +8,6 @@ import Photos
 import UniformTypeIdentifiers
 
 struct Row { let t: String; let size: CGFloat; let bold: Bool; let color: UIColor }
-typealias StampLines = (head: String?, date: String?, project: String?, address: String?, custom: [String], rows: [String])
 struct PhotoRec: Codable, Identifiable { var file: String; var time: Date; var lat: Double?; var lon: Double?; var video: Bool? = nil; var id: String { file } }
 
 extension UIImage {
@@ -331,7 +330,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if flag("alt"), let l = l, l.verticalAccuracy >= 0 { rows.append("Độ cao \(Int(l.altitude)) m") }
         if flag("hdg"), let h = heading { rows.append("Hướng \(Int(h))° \(dirs[Int((h / 45).rounded()) % 8])") }
         if !str("note").isEmpty { rows.append("Ghi chú: " + str("note")) }
-        return (head, date, project, address, custom, rows)
+        return StampLines(head: head, date: date, project: project, address: address, custom: custom, rows: rows)
     }
     private func code(_ d: Date, _ l: CLLocation?) -> String {
         let raw = "\(Int(d.timeIntervalSince1970 * 1000))|" + (l.map { String(format: "%.6f,%.6f", $0.coordinate.latitude, $0.coordinate.longitude) } ?? "-")
@@ -362,7 +361,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if t.hasPrefix("Mã xác thực") { return Row(t: t, size: u * 2.6, bold: false, color: UIColor(white: 0.65, alpha: 1)) }
         return Row(t: t, size: u * 3.2, bold: false, color: UIColor(white: 0.92, alpha: 1))
     }
-    private func stamp(_ img: UIImage, _ L: StampLines) -> UIImage {
+    func stamp(_ img: UIImage, _ L: StampLines) -> UIImage {
         let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
         return UIGraphicsImageRenderer(size: img.size, format: fmt).image { ctx in
             img.draw(at: .zero)
@@ -379,7 +378,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         guard w > 0, h > 0 else { return }
         let orange = UIColor(red: 1, green: 0.64, blue: 0.36, alpha: 1)
         let yellow = UIColor(red: 1, green: 0.82, blue: 0.25, alpha: 1)
-        let khaki = UIColor(red: 0.34, green: 0.38, blue: 0.27, alpha: 0.75)
 
         // Watermark remains independent of the information panel.
         if flag("wmOn"), !str("wm").isEmpty {
@@ -408,69 +406,20 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
 
         let logo = flag("logoOn") ? LogoImage.load() : nil
        
-var entries: [Row] = []
-
-// Lay Dia diem tu cac truong tuy bien, khong phu thuoc f1-f4.
-let placeIndex = L.custom.firstIndex { value in
-    let label = value.components(separatedBy: ":").first ?? ""
-    return label.trimmingCharacters(in: .whitespacesAndNewlines)
-        .folding(options: [.diacriticInsensitive, .caseInsensitive],
-                 locale: Locale(identifier: "vi_VN"))
-        .lowercased() == "dia diem"
-}
-
-// Dia diem ngay duoi hang logo + Nhiem vu.
-if let index = placeIndex {
-    entries.append(Row(
-        t: L.custom[index],
-        size: u * 3.4,
-        bold: true,
-        color: .white
-    ))
-}
-
-// Gio.
-if let time = L.head, !time.isEmpty {
-    entries.append(Row(
-        t: time,
-        size: u * 7.5,
-        bold: true,
-        color: yellow
-    ))
-}
-
-// Ngay thang.
-if let date = L.date, !date.isEmpty {
-    entries.append(Row(
-        t: date,
-        size: u * 3.4,
-        bold: false,
-        color: .white
-    ))
-}
-
-// Dia chi GPS ngay duoi ngay thang.
-if let address = L.address, !address.isEmpty {
-    entries.append(Row(
-        t: address,
-        size: u * 3.4,
-        bold: true,
-        color: .white
-    ))
-}
-
-// Cac truong con lai, khong lap Dia diem.
-for (index, value) in L.custom.enumerated() {
-    if index == placeIndex { continue }
-    entries.append(Row(
-        t: value,
-        size: u * 3.3,
-        bold: false,
-        color: UIColor(white: 0.92, alpha: 1)
-    ))
-}
-
-L.rows.forEach { entries.append(style($0, u)) }
+        let entries: [Row] = L.orderedBody.map { entry in
+            switch entry.role {
+            case .place, .address:
+                return Row(t: entry.text, size: u * 3.4, bold: true, color: .white)
+            case .time:
+                return Row(t: entry.text, size: u * 7.5, bold: true, color: yellow)
+            case .date:
+                return Row(t: entry.text, size: u * 3.4, bold: false, color: .white)
+            case .custom:
+                return Row(t: entry.text, size: u * 3.3, bold: false, color: UIColor(white: 0.92, alpha: 1))
+            case .detail:
+                return style(entry.text, u)
+            }
+        }
 
         let project = L.project ?? ""
         if logo == nil && project.isEmpty && entries.isEmpty { return }
@@ -539,7 +488,7 @@ L.rows.forEach { entries.append(style($0, u)) }
         c.saveGState()
         c.setShadow(offset: CGSize(width: 0, height: u * 0.3), blur: u * 1.2,
                     color: UIColor(white: 0, alpha: 0.5).cgColor)
-        khaki.setFill()
+        StampPreferences.background.setFill()
         path.fill()
         c.restoreGState()
 

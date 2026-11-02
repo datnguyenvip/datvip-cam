@@ -28,3 +28,28 @@ targets:
         NSLocationWhenInUseUsageDescription: Datvip Cam cần vị trí để đóng dấu toạ độ lên ảnh.
         NSMicrophoneUsageDescription: Datvip Cam cần micro để ghi âm khi quay video.
         NSPhotoLibraryAddUsageDescription: Datvip Cam cần quyền lưu ảnh vào thư viện.
+
+  StampTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Sources
+        excludes:
+          - ContentView.swift
+          - DatvipCamApp.swift
+          - ExportGallery.swift
+      - Tests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.stamptests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+schemes:
+  StampTests:
+    build:
+      targets:
+        StampTests: all
+    test:
+      targets:
+        - StampTests
+      gatherCoverageData: false

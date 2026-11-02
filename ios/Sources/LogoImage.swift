@@ -100,7 +100,7 @@ enum LogoImage {
         }
 
         // 2. Logo BAO VE ANTT mac dinh
-        if let bundled = UIImage(named: "DefaultANTTLogo") {
+        if let bundled = UIImage(named: "DefaultANTTLogo", in: Bundle(for: CameraModel.self), compatibleWith: nil) {
             return bundled.trimmingTransparentMargins()
         }
 

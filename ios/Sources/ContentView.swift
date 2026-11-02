@@ -37,10 +37,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showNote = false
     @State private var showGallery = false
-    @AppStorage("logoOn") private var logoOn = true
-    @State private var logoImg = LogoImage.load()
     private let orange = Color(red: 1, green: 0.42, blue: 0.10)
-    private let softOrange = Color(red: 1, green: 0.64, blue: 0.36)
     private let yellow = Color(red: 1, green: 0.82, blue: 0.25)
 
     private var angle: Double {
@@ -93,7 +90,7 @@ struct ContentView: View {
             .padding(.vertical, 14).background(Color(red: 0.04, green: 0.08, blue: 0.10))
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings, onDismiss: { logoImg = LogoImage.load() }) { SettingsView() }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showNote) { NoteView() }
         .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
     }
@@ -128,51 +125,21 @@ struct ContentView: View {
         }
     }
 
-    /// Khung thông tin: luôn nằm góc dưới của ảnh, xoay theo hướng cầm điện thoại
+    /// Use the photo/video renderer for preview too, including wrapping and height.
     private func overlay(_ d: Date, _ fw: CGFloat, _ fh: CGFloat) -> some View {
-        let u = min(fw, fh) / 100
-        return ZStack(alignment: .bottomLeading) { Color.clear; panel(d, u).padding(3 * u) }
-            .frame(width: land ? fh : fw, height: land ? fw : fh)
+        let width = land ? fh : fw
+        let height = land ? fw : fh
+        let density = UIScreen.main.scale
+        let image = m.overlayImage(CGSize(width: width * density, height: height * density),
+                                   m.lines(d, m.loc))
+        return Image(uiImage: image).resizable()
+            .frame(width: width, height: height)
             .rotationEffect(.degrees(angle))
             .animation(.easeInOut(duration: 0.15), value: angle)
             .frame(width: fw, height: fh)
+            .allowsHitTesting(false)
     }
-    private func panel(_ d: Date, _ u: CGFloat) -> some View {
-        let L = m.lines(d, m.loc)
-        let lg: UIImage? = logoOn ? logoImg : nil
-        return HStack(spacing: 0) {
-            Rectangle().fill(orange).frame(width: 1.4 * u)
-            VStack(alignment: .leading, spacing: 2) {
-                if let lg = lg {
-                    HStack(alignment: .top, spacing: 1.8 * u) {
-                        Image(uiImage: lg).resizable().scaledToFit()
-                            .frame(width: LogoImage.displaySize(lg, unit: u).width, height: LogoImage.displaySize(lg, unit: u).height)
-                        VStack(alignment: .leading, spacing: 1) {
-                            if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
-                            if let a = L.address { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
-                        }
-                    }
-                }
-                if let h = L.head {
-                    Text(h).font(.system(size: 7.5 * u, weight: .bold)).foregroundColor(yellow)
-                    Text(L.date ?? "").font(.system(size: 3.4 * u))
-                }
-                if lg == nil {
-                    if let p = L.project { Text(p).font(.system(size: 3.8 * u, weight: .bold)).foregroundColor(softOrange) }
-                    if let a = L.address { Text(a).font(.system(size: 3.4 * u, weight: .bold)) }
-                }
-                ForEach(Array(L.custom.enumerated()), id: \.offset) { _, r in
-                    Text(r).font(.system(size: 3.3 * u)).foregroundColor(Color(white: 0.92))
-                }
-                ForEach(Array(L.rows.enumerated()), id: \.offset) { _, r in
-                    Text(r).font(.system(size: 3.2 * u)).foregroundColor(Color(white: 0.95))
-                }
-            }.foregroundColor(.white).shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1).padding(2.8 * u)
-        }
-        .background(Color(uiColor: StampPreferences.background))
-        .clipShape(RoundedRectangle(cornerRadius: 1.6 * u))
-        .fixedSize(horizontal: false, vertical: true)
-    }
+
 }
 
 struct NoteView: View {
