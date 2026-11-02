@@ -3,6 +3,8 @@ package com.datvip.cam
 import android.content.Context
 import android.graphics.*
 import android.text.StaticLayout
+import android.text.Layout
+import android.graphics.text.LineBreaker
 import android.text.TextPaint
 import android.view.View
 import java.text.Normalizer
@@ -64,7 +66,8 @@ object AndroidStampRenderer {
                 color = when (entry.role) { StampRole.PROJECT -> orange; StampRole.TIME -> yellow; else -> if (entry.text.startsWith("Mã xác thực")) Color.LTGRAY else Color.WHITE }
             }
             fun layout(entry: StampEntry, width: Float) = StaticLayout.Builder.obtain(entry.text, 0, entry.text.length,
-                textPaint(entry), width.toInt().coerceAtLeast(1)).setIncludePad(false).setBreakStrategy(0).setHyphenationFrequency(0).build()
+                textPaint(entry), width.toInt().coerceAtLeast(1)).setIncludePad(false)
+                .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE).setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE).build()
             fun append(entry: StampEntry, x: Float, y: Float, width: Float): Float {
                 val text = layout(entry, width)
                 blocks.add(Block(entry, text, x, y))
