@@ -370,6 +370,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
     /// Ảnh chỉ có phần dấu (nền trong suốt) để ghép lên từng khung hình video
     func overlayImage(_ size: CGSize, _ L: StampLines) -> UIImage {
+        guard size.width > 0, size.height > 0 else { return UIImage() }
         let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
         return UIGraphicsImageRenderer(size: size, format: fmt).image { ctx in self.drawStamp(ctx.cgContext, size, L) }
     }

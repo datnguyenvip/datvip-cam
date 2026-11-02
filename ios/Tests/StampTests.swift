@@ -142,6 +142,8 @@ final class StampTests: XCTestCase {
 
     func testCustomLogoTakesPriorityAndDefaultReturns() throws {
         let url = CameraModel.logoURL
+        // Hostless XCTest does not create an app's Documents directory for us.
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let original = try? Data(contentsOf: url)
         defer {
             if let original = original { try? original.write(to: url) }
@@ -154,8 +156,25 @@ final class StampTests: XCTestCase {
             UIColor.red.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 80, height: 40))
         }
         try XCTUnwrap(custom.pngData()).write(to: url)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         XCTAssertEqual(LogoImage.load()?.size, custom.size)
         try FileManager.default.removeItem(at: url)
         XCTAssertNotNil(LogoImage.load())
+    }
+
+    func testVietnameseTrafficFixture() {
+        let model = CameraModel()
+        NotePreset.builtIn[0].apply()
+        model.autoAddr = "175, Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh"
+        var content = model.lines(Date(timeIntervalSince1970: 1793548732), nil)
+        content.head = "22:58:52"
+        content.date = "Chủ Nhật, 01/11/2026 (GMT+7)"
+        content.rows = ["Mã xác thực: TEST2026"]
+        let image = model.overlayImage(CGSize(width: 1200, height: 1600), content)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "Giao-thong-Vietnamese"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTAssertEqual(content.orderedBody.map(\.role), [.place, .time, .date, .address, .custom, .detail])
     }
 }
