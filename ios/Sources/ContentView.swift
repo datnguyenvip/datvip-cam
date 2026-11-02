@@ -194,6 +194,9 @@ struct SettingsView: View {
     @AppStorage("logoOn") private var logoOn = true
     @AppStorage("shutterSound") private var shutterSound = true
     @State private var pick: PhotosPickerItem?
+    @State private var logoRevision = 0
+    @AppStorage(StampPreferences.logoOpacityKey) private var logoOpacity = 1.0
+    @AppStorage(StampPreferences.removeLogoBackgroundKey) private var removeWhiteLogoBackground = false
 
     var body: some View {
         NavigationStack {
@@ -206,7 +209,7 @@ struct SettingsView: View {
                 }
                 Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
                 NotePresetsSection()
-                StampBackgroundSection()
+                StampBackgroundSection(logoRevision: logoRevision)
                 Section("Chụp ảnh") { Toggle("Tiếng chụp ảnh", isOn: $shutterSound) }
                 Section("Hiển thị trên ảnh") {
                     Toggle("Ngày giờ", isOn: $time); Toggle("Toạ độ GPS", isOn: $gps); Toggle("Độ cao", isOn: $alt)
@@ -215,7 +218,15 @@ struct SettingsView: View {
                 Section("Logo") {
                     PhotosPicker(selection: $pick, matching: .images) { Text("Chọn logo từ thư viện") }
                     Toggle("Hiện logo lên ảnh", isOn: $logoOn)
-                    Button("Xoá logo", role: .destructive) { try? FileManager.default.removeItem(at: CameraModel.logoURL) }
+                    Text("Độ đậm logo: \(Int(min(1, max(0, logoOpacity)) * 100))%")
+                    Slider(value: $logoOpacity, in: 0...1, step: 0.05) { Text("Độ đậm logo") }
+                    Toggle("Ẩn nền trắng của logo", isOn: $removeWhiteLogoBackground)
+                    Text("Ẩn vùng trắng bên ngoài logo, giữ nguyên tệp gốc. Tắt tùy chọn để khôi phục.")
+                        .font(.caption).foregroundColor(.secondary)
+                    Button("Xoá logo", role: .destructive) {
+                        try? FileManager.default.removeItem(at: CameraModel.logoURL)
+                        logoRevision += 1
+                    }
                 }
                 Section("Ứng dụng") {
                     NavigationLink("Thông tin") { AboutView() }
@@ -231,6 +242,7 @@ struct SettingsView: View {
                     let f = UIGraphicsImageRendererFormat(); f.scale = 1; f.opaque = false
                     let small = UIGraphicsImageRenderer(size: size, format: f).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
                     try? small.trimmingTransparentMargins().pngData()?.write(to: CameraModel.logoURL)
+                    logoRevision += 1
                 }
             }
         }

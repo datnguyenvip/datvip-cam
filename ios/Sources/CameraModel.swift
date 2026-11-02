@@ -413,12 +413,13 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             c.restoreGState()
         }
 
-        let logo = flag("logoOn") ? LogoImage.load() : nil
+        let logo = flag("logoOn") && StampPreferences.logoOpacity > 0 ? LogoImage.load() : nil
         guard logo != nil || L.project != nil || !L.orderedBody.isEmpty else { return }
         let layout = StampLayout.make(size: size, content: L, logoSize: logo?.size)
-        let path = UIBezierPath(roundedRect: layout.rect, cornerRadius: u * 1.6)
+        let decorationUnit = u * StampPreferences.displaySize
+        let path = UIBezierPath(roundedRect: layout.rect, cornerRadius: decorationUnit * 1.6)
         c.saveGState()
-        c.setShadow(offset: CGSize(width: 0, height: u * 0.3), blur: u * 1.2,
+        c.setShadow(offset: CGSize(width: 0, height: decorationUnit * 0.3), blur: decorationUnit * 1.2,
                     color: UIColor(white: 0, alpha: 0.5).cgColor)
         StampPreferences.background.setFill()
         path.fill()
@@ -426,9 +427,9 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
 
         c.saveGState()
         path.addClip()
-        UIColor(red: 1, green: 0.42, blue: 0.10, alpha: 1).setFill()
-        UIRectFill(CGRect(x: layout.rect.minX, y: layout.rect.minY, width: u * 1.4, height: layout.rect.height))
-        if let logo = logo, let rect = layout.logoRect { logo.draw(in: rect) }
+        UIColor(red: 1, green: 0.42, blue: 0.10, alpha: StampPreferences.backgroundOpacity).setFill()
+        UIRectFill(CGRect(x: layout.rect.minX, y: layout.rect.minY, width: decorationUnit * 1.4, height: layout.rect.height))
+        if let logo = logo, let rect = layout.logoRect { logo.draw(in: rect, blendMode: .normal, alpha: StampPreferences.logoOpacity) }
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byWordWrapping
         for text in layout.texts {

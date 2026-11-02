@@ -5,16 +5,25 @@ import AudioToolbox
 enum StampPreferences {
     static let backgroundKey = "stampBackgroundHex"
     static let opacityKey = "stampBackgroundOpacity"
+    static let sizeKey = "stampDisplaySize"
+    static let logoOpacityKey = "stampLogoOpacity"
+    static let removeLogoBackgroundKey = "stampLogoRemoveWhiteBackground"
+    static let defaultSize = 0.75
     static let defaultHex = "576145"
     static let defaultOpacity = 0.75
+
+    private static func number(_ key: String, fallback: Double, range: ClosedRange<Double>) -> Double {
+        let value = UserDefaults.standard.object(forKey: key) as? Double ?? fallback
+        return value.isFinite ? min(range.upperBound, max(range.lowerBound, value)) : fallback
+    }
+    static var displaySize: CGFloat { CGFloat(number(sizeKey, fallback: defaultSize, range: 0.5...1.2)) }
+    static var backgroundOpacity: CGFloat { CGFloat(number(opacityKey, fallback: defaultOpacity, range: 0...1)) }
+    static var logoOpacity: CGFloat { CGFloat(number(logoOpacityKey, fallback: 1, range: 0...1)) }
 
     static var background: UIColor {
         let defaults = UserDefaults.standard
         let hex = defaults.string(forKey: backgroundKey) ?? defaultHex
-        let value = defaults.object(forKey: opacityKey) as? Double ?? defaultOpacity
-        return UIColor(stampHex: hex).withAlphaComponent(
-            CGFloat(min(1, max(0.4, value)))
-        )
+        return UIColor(stampHex: hex).withAlphaComponent(backgroundOpacity)
     }
 }
 
@@ -380,6 +389,12 @@ struct NotePresetsSection: View {
 }
 
 struct StampBackgroundSection: View {
+    var logoRevision = 0
+    @StateObject private var model = CameraModel()
+    @AppStorage(StampPreferences.sizeKey) private var displaySize = StampPreferences.defaultSize
+    @AppStorage(StampPreferences.logoOpacityKey) private var logoOpacity = 1.0
+    @AppStorage(StampPreferences.removeLogoBackgroundKey) private var removeWhite = false
+    @AppStorage("logoOn") private var logoOn = true
     @AppStorage(StampPreferences.backgroundKey)
     private var hex = StampPreferences.defaultHex
 
@@ -398,7 +413,20 @@ struct StampBackgroundSection: View {
     }
 
     var body: some View {
-        Section("Nền khung thông tin") {
+        Section("Kích thước và nền khung dấu") {
+            Text("Cỡ dấu: \(Int(min(1.2, max(0.5, displaySize)) * 100))%")
+            HStack {
+                Button("Rất nhỏ") { displaySize = 0.5 }
+                Spacer()
+                Button("Gọn") { displaySize = StampPreferences.defaultSize }
+                Spacer()
+                Button("Lớn") { displaySize = 1.0 }
+            }.buttonStyle(.borderless)
+            Slider(value: $displaySize, in: 0.5...1.2, step: 0.05) {
+                Text("Kích thước dấu")
+            } minimumValueLabel: { Text("Nhỏ") } maximumValueLabel: { Text("Lớn") }
+            Text("Chỉnh trực tiếp theo hình xem thử. Khung tự mở ngang khi có nhiều nội dung.")
+                .font(.caption).foregroundColor(.secondary)
             ColorPicker(
                 "Màu nền",
                 selection: selectedColor,
@@ -406,39 +434,37 @@ struct StampBackgroundSection: View {
             )
 
             Text(
-                "Độ đậm nền: \(Int(min(1, max(0.4, opacity)) * 100))%"
+                "Độ đậm nền: \(Int(min(1, max(0, opacity)) * 100))%"
             )
 
             Slider(
                 value: $opacity,
-                in: 0.4...1,
+                in: 0...1,
                 step: 0.05
             )
 
-            Text("Mặc định xanh rêu kaki 75%.")
+            Text("0%: nền trong suốt hoàn toàn. 100%: nền đậm hoàn toàn.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Text("12:34:56 · Nhiệm vụ mẫu")
-                .font(.headline)
-                .foregroundColor(.white)
-                .shadow(
-                    color: .black,
-                    radius: 1,
-                    x: 0,
-                    y: 1
-                )
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(
-                    Color(uiColor: StampPreferences.background)
-                )
-                .cornerRadius(10)
+            let sample = StampLines(head: "10:51:00", date: "Thứ Hai, 02/11/2026 (GMT+7)",
+                                    project: "Nhiệm vụ: Nhật ký công việc",
+                                    address: "175 Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh",
+                                    custom: ["Địa điểm: Chốt giao thông", "ANCS: DatVip – tổ 3"],
+                                    rows: ["Mã xác thực: 12345678"])
+            Image(uiImage: model.overlayImage(CGSize(width: 900, height: 1200), sample))
+                .resizable().scaledToFit()
+                .background(LinearGradient(colors: [.gray, .blue.opacity(0.35), .black], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(height: 260).frame(maxWidth: .infinity)
+                .accessibilityLabel("Xem thử khung dấu")
+            Text(logoOn ? "Logo: \(Int(min(1, max(0, logoOpacity)) * 100))% độ đậm\(removeWhite ? " · Đã ẩn nền trắng" : "")" : "Logo đang tắt")
+                .font(.caption).foregroundColor(.secondary)
 
             Button("Khôi phục nền mặc định") {
                 hex = StampPreferences.defaultHex
                 opacity = StampPreferences.defaultOpacity
             }
+            Button("Khôi phục cỡ dấu gọn") { displaySize = StampPreferences.defaultSize }
         }
     }
 }

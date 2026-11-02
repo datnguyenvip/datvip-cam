@@ -35,19 +35,20 @@ struct StampLayout {
         let margin = 3 * u
         let availableWidth = size.width - 2 * margin
         let availableHeight = size.height - 2 * margin
-        let compact = measure(width: availableWidth / 2, unit: u, scale: 1,
+        let drawingUnit = u * StampPreferences.displaySize
+        let compact = measure(width: availableWidth / 2, unit: drawingUnit, scale: 1,
                               mode: .corner, content: content, logoSize: logoSize)
         var result: StampLayout
-        if compact.rect.height <= availableHeight / 2 {
+        if compact.rect.height <= availableHeight * 0.4 {
             result = compact
         } else {
             // Expand before reducing text size, so dense notes remain readable.
             var scale: CGFloat = 1
-            result = measure(width: availableWidth, unit: u, scale: scale,
+            result = measure(width: availableWidth, unit: drawingUnit, scale: scale,
                              mode: .footer, content: content, logoSize: logoSize)
             while result.rect.height > availableHeight && scale > 0.15 {
                 scale *= 0.9
-                result = measure(width: availableWidth, unit: u, scale: scale,
+                result = measure(width: availableWidth, unit: drawingUnit, scale: scale,
                                  mode: .footer, content: content, logoSize: logoSize)
             }
         }
@@ -63,16 +64,16 @@ struct StampLayout {
     private static func measure(width: CGFloat, unit u: CGFloat, scale: CGFloat,
                                 mode: Mode, content: StampLines, logoSize: CGSize?) -> StampLayout {
         let compact = mode == .corner
-        let padding = (compact ? 2 : 2.8) * u
-        let bar = 1.4 * u, gap = 1.2 * u * scale
+        let padding = (compact ? 1.2 : 2.8) * u
+        let bar = 1.4 * u, gap = (compact ? 0.7 : 1.2) * u * scale
         let left = bar + padding
         let textWidth = max(1, width - left - padding)
         var texts: [Text] = []
         func font(_ role: StampLines.Role?) -> UIFont {
             let points: CGFloat
             switch role {
-            case nil: points = compact ? 3.2 : 3.8
-            case .time: points = compact ? 5.2 : 7.5
+            case nil: points = compact ? 3 : 3.8
+            case .time: points = compact ? 3.8 : 7.5
             case .date: points = compact ? 2.6 : 3.4
             case .place, .address: points = compact ? 3 : 3.4
             case .custom: points = compact ? 2.9 : 3.3
@@ -110,8 +111,8 @@ struct StampLayout {
 
         var logoRect: CGRect?
         if let logo = logoSize, logo.width > 0, logo.height > 0 {
-            let fit = min((compact ? 8 : 9) * u * scale / logo.height,
-                          (compact ? 12 : 24) * u * scale / logo.width)
+            let fit = min((compact ? 6 : 9) * u * scale / logo.height,
+                          (compact ? 9 : 24) * u * scale / logo.width)
             logoRect = CGRect(x: left, y: padding, width: logo.width * fit, height: logo.height * fit)
         }
         let headerX = left + (logoRect.map { $0.width + gap } ?? 0)

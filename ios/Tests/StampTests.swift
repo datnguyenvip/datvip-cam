@@ -6,7 +6,9 @@ import CoreLocation
 final class StampTests: XCTestCase {
     private var saved: [String: Any] = [:]
     private let keys = NotePreset.keys + ["addr", "time", "gps", "alt", "hdg", "logoOn", "wmOn", "wm",
-                                          StampPreferences.backgroundKey, StampPreferences.opacityKey]
+                                          StampPreferences.backgroundKey, StampPreferences.opacityKey,
+                                          StampPreferences.sizeKey, StampPreferences.logoOpacityKey,
+                                          StampPreferences.removeLogoBackgroundKey]
 
     override func setUp() {
         super.setUp()
@@ -270,6 +272,113 @@ final class StampTests: XCTestCase {
                 XCTAssertEqual(exported.mode, preview.mode)
                 XCTAssertEqual(exported.rect.width / size.width, preview.rect.width / (size.width / 3), accuracy: 0.01)
                 XCTAssertEqual(exported.rect.height / size.height, preview.rect.height / (size.height / 3), accuracy: 0.02)
+            }
+        }
+    }
+
+    private func pixel(_ image: UIImage, x: CGFloat, y: CGFloat) throws -> [UInt8] {
+        let cg = try XCTUnwrap(image.cgImage?.cropping(to: CGRect(x: x.rounded(.down), y: y.rounded(.down), width: 1, height: 1)))
+        var bytes = [UInt8](repeating: 0, count: 4)
+        bytes.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8,
+                                    bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                                    bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+        return bytes
+    }
+
+    func testIndependentBackgroundAndLogoOpacity() throws {
+        let model = CameraModel(), size = CGSize(width: 1200, height: 1600)
+        let url = CameraModel.logoURL
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let original = try? Data(contentsOf: url)
+        defer {
+            if let original = original { try? original.write(to: url) }
+            else { try? FileManager.default.removeItem(at: url) }
+        }
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let red = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40), format: format).image { _ in
+            UIColor.red.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 80, height: 40))
+        }
+        try XCTUnwrap(red.pngData()).write(to: url)
+        UserDefaults.standard.set(0.0, forKey: StampPreferences.opacityKey)
+        UserDefaults.standard.set(0.5, forKey: StampPreferences.logoOpacityKey)
+        let layout = StampLayout.make(size: size, content: sample(), logoSize: red.size)
+        let logo = try XCTUnwrap(layout.logoRect)
+        let clearBackground = model.overlayImage(size, sample())
+        XCTAssertEqual(StampPreferences.background.cgColor.alpha, 0, accuracy: 0.001)
+        let fadedLogo = try pixel(clearBackground, x: logo.midX, y: logo.midY)
+        XCTAssertEqual(Int(fadedLogo[3]), 128, accuracy: 2)
+        XCTAssertEqual(try pixel(clearBackground, x: layout.rect.midX, y: layout.rect.maxY - 3)[3], 0)
+        UserDefaults.standard.set(1.0, forKey: StampPreferences.opacityKey)
+        let opaqueBackground = model.overlayImage(size, sample())
+        XCTAssertEqual(try pixel(opaqueBackground, x: layout.rect.midX, y: layout.rect.maxY - 3)[3], 255)
+        UserDefaults.standard.set(0.0, forKey: StampPreferences.logoOpacityKey)
+        UserDefaults.standard.set(0.0, forKey: StampPreferences.opacityKey)
+        XCTAssertNotEqual(model.overlayImage(size, sample()).pngData(), clearBackground.pngData())
+        XCTAssertEqual(StampPreferences.logoOpacity, 0)
+    }
+
+    func testRemoveWhiteBackgroundPreservesEnclosedDetailAndOriginal() throws {
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let original = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20), format: format).image { _ in
+            UIColor.white.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 20, height: 20))
+            UIColor.red.setFill(); UIRectFill(CGRect(x: 4, y: 4, width: 12, height: 12))
+            UIColor.white.setFill(); UIRectFill(CGRect(x: 8, y: 8, width: 4, height: 4))
+        }
+        let data = original.pngData()
+        let cutout = original.removingWhiteBackdrop()
+        XCTAssertEqual(cutout.size, CGSize(width: 12, height: 12))
+        XCTAssertEqual(try pixel(cutout, x: 5, y: 5), [255, 255, 255, 255])
+        XCTAssertEqual(try pixel(cutout, x: 1, y: 1), [255, 0, 0, 255])
+        XCTAssertEqual(original.pngData(), data)
+        let url = CameraModel.logoURL
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let savedLogo = try? Data(contentsOf: url)
+        defer {
+            if let savedLogo = savedLogo { try? savedLogo.write(to: url) }
+            else { try? FileManager.default.removeItem(at: url) }
+        }
+        try XCTUnwrap(data).write(to: url)
+        UserDefaults.standard.set(true, forKey: StampPreferences.removeLogoBackgroundKey)
+        XCTAssertEqual(LogoImage.load()?.size, cutout.size)
+        XCTAssertTrue(LogoImage.load() === LogoImage.load(), "Reuse processed logo between frames")
+        UserDefaults.standard.set(false, forKey: StampPreferences.removeLogoBackgroundKey)
+        XCTAssertEqual(LogoImage.load()?.size, original.size)
+        XCTAssertEqual(try Data(contentsOf: url), data)
+    }
+
+    func testSmallSizePresetsAndAppearanceEvidence() {
+        let model = CameraModel(), size = CGSize(width: 1200, height: 1600)
+        NotePreset.builtIn[0].apply()
+        model.autoAddr = "175 Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh"
+        var content = model.lines(Date(), nil)
+        content.head = "10:51:00"; content.date = "Thứ Hai, 02/11/2026 (GMT+7)"
+        content.rows = ["Mã xác thực: 12345678"]
+        UserDefaults.standard.set(1.0, forKey: StampPreferences.sizeKey)
+        let large = StampLayout.make(size: size, content: content, logoSize: LogoImage.load()?.size)
+        UserDefaults.standard.set(StampPreferences.defaultSize, forKey: StampPreferences.sizeKey)
+        let small = StampLayout.make(size: size, content: content, logoSize: LogoImage.load()?.size)
+        XCTAssertEqual(small.mode, .corner)
+        XCTAssertLessThan(small.rect.height, large.rect.height)
+        XCTAssertLessThan(small.rect.height / size.height, 0.3, "Default should match the smaller reference footprint")
+        for scale in [0.5, StampPreferences.defaultSize, 1.0, 1.2] {
+            UserDefaults.standard.set(scale, forKey: StampPreferences.sizeKey)
+            for transparent in [false, true] {
+                UserDefaults.standard.set(transparent ? 0.0 : 0.75, forKey: StampPreferences.opacityKey)
+                UserDefaults.standard.set(transparent ? 0.5 : 1.0, forKey: StampPreferences.logoOpacityKey)
+                UserDefaults.standard.set(transparent, forKey: StampPreferences.removeLogoBackgroundKey)
+                let image = model.overlayImage(size, content)
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "appearance-size-\(Int(scale * 100))-transparent-\(transparent)"
+                attachment.lifetime = .keepAlways; add(attachment)
+                let logo = LogoImage.load()?.size
+                let exported = StampLayout.make(size: size, content: content, logoSize: logo)
+                let preview = StampLayout.make(size: CGSize(width: 400, height: 1600.0 / 3), content: content, logoSize: logo)
+                XCTAssertEqual(exported.mode, preview.mode)
+                XCTAssertEqual(exported.rect.height / 3, preview.rect.height, accuracy: 0.1)
+                XCTAssertTrue(exported.texts.allSatisfy { exported.rect.insetBy(dx: -0.1, dy: -0.1).contains($0.rect) })
             }
         }
     }
