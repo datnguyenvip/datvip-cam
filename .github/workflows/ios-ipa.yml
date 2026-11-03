@@ -3,6 +3,15 @@ name: Build unsigned IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      appstore:
+        description: Also build an App Store signed archive after tests pass
+        type: boolean
+        default: false
+      upload:
+        description: Upload the signed archive to App Store Connect
+        type: boolean
+        default: false
   push:
     branches: [main, codex/datvip-cam-verified-integration]
     paths:
@@ -10,6 +19,13 @@ on:
       - ".github/workflows/ios-ipa.yml"
 
 jobs:
+  appstore:
+    if: github.event_name == 'workflow_dispatch' && inputs.appstore
+    needs: build
+    uses: ./.github/workflows/ios-appstore.yml
+    with:
+      upload: ${{ inputs.upload }}
+    secrets: inherit
   build:
     runs-on: macos-15
     env:
