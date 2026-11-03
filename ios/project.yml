@@ -75,6 +75,14 @@ targets:
         TEST_TARGET_NAME: DatvipCam
         SWIFT_VERSION: "5.0"
 schemes:
+  DatvipCam:
+    build:
+      targets:
+        DatvipCam: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   StoreScreenshots:
     build:
       targets:
