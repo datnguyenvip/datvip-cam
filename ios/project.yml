@@ -56,12 +56,30 @@ targets:
           - DatvipCamApp.swift
           - ExportGallery.swift
           - CameraBanner.swift
-      - Tests
+          - AdFreeStore.swift
+      - path: Tests
+        excludes: [AdFreeStoreTests.swift]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.stamptests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
+  PurchaseTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests/AdFreeStoreTests.swift
+      - path: Tests/RemoveAds.storekit
+        buildPhase: resources
+    dependencies:
+      - target: DatvipCam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.purchasetests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DatvipCam.app/DatvipCam"
+        BUNDLE_LOADER: "$(TEST_HOST)"
   StoreScreenshots:
     type: bundle.ui-testing
     platform: iOS
@@ -75,6 +93,15 @@ targets:
         TEST_TARGET_NAME: DatvipCam
         SWIFT_VERSION: "5.0"
 schemes:
+  PurchaseTests:
+    build:
+      targets:
+        DatvipCam: all
+        PurchaseTests: [test]
+    test:
+      targets: [PurchaseTests]
+      environmentVariables:
+        CAMERA_HT_UI_TESTING: "1"
   DatvipCam:
     build:
       targets:

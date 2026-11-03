@@ -1,11 +1,13 @@
 import XCTest
 import StoreKitTest
+@testable import DatvipCam
 
 @MainActor
 @available(iOS 17.0, *)
 final class AdFreeStoreTests: XCTestCase {
     func testVerifiedNonConsumableSurvivesRecreationAndRefundRevokesIt() async throws {
         let session = try SKTestSession(configurationFileNamed: "RemoveAds")
+        session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
         defer { session.clearTransactions() }
@@ -24,6 +26,7 @@ final class AdFreeStoreTests: XCTestCase {
     }
     func testPendingPaymentDoesNotRemoveAds() async throws {
         let session = try SKTestSession(configurationFileNamed: "RemoveAds")
+        session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
         session.askToBuyEnabled = true
