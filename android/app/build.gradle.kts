@@ -17,7 +17,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     testOptions { unitTests.isIncludeAndroidResources = true }
     buildTypes {
         getByName("release") { isMinifyEnabled = false }
@@ -30,6 +29,7 @@ android {
         }
     }
 }
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
     implementation("com.android.billingclient:billing:9.1.0")
     implementation("com.google.android.gms:play-services-ads:25.5.0")

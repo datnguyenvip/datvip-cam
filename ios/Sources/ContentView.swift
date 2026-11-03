@@ -88,6 +88,7 @@ struct ContentView: View {
                 chip("gearshape") { showSettings = true }
             }
             .padding(.vertical, 14).background(Color(red: 0.04, green: 0.08, blue: 0.10))
+            CameraBanner()
         }
         .background(Color.black.ignoresSafeArea())
         .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
@@ -212,6 +213,7 @@ struct SettingsView: View {
                     .disabled(languageLocked)
                 }
                 AdFreeSettingsSection()
+                AdPrivacySection()
                 Section(AppLanguage.text("Nội dung dấu")) {
                     KeyField("proj", AppLanguage.text("Tên nhiệm vụ / công việc"))
                     KeyField("addr", AppLanguage.text("Địa chỉ (để trống = tự lấy theo GPS)"))

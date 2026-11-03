@@ -1,4 +1,11 @@
 name: DatvipCam
+packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    exactVersion: 13.12.0
+  GoogleUMP:
+    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
+    exactVersion: 3.1.0
 options:
   bundleIdPrefix: com.datvip
   objectVersion: 56
@@ -7,6 +14,11 @@ options:
 targets:
   DatvipCam:
     type: application
+    dependencies:
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
+      - package: GoogleUMP
+        product: GoogleUserMessagingPlatform
     platform: iOS
     sources:
       - Sources
@@ -22,6 +34,8 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Field Camera
+        GADApplicationIdentifier: ca-app-pub-7989207995898060~8435659601
+        GADDelayAppMeasurementInit: true
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, vi]
         UILaunchScreen: {}
