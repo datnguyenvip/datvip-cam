@@ -132,7 +132,7 @@ struct GalleryView: View {
                     Text(AppLanguage.text("Nếu ứng dụng nhận chỉ gửi ảnh/video, dán link này vào cuộc trò chuyện sau khi gửi.")).font(.caption).foregroundColor(.secondary)
                 }.padding()
             }.navigationTitle(AppLanguage.text("Liên kết Maps")).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { showLinks = false } } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(AppLanguage.text("Xong")) { showLinks = false } } }
         }.presentationDetents([.medium, .large])
     }
 
@@ -158,3 +158,4 @@ struct GalleryView: View {
         }
     }
 }
+

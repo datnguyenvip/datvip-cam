@@ -154,7 +154,7 @@ class StampSettingsScreen(
         val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFF0B141B.toInt()); isFocusableInTouchMode = true }
         val toolbar = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(12), dp(8)) }
         toolbar.addView(text(if (quick) Language.text(context, "Ghi chú nhanh") else Language.text(context, "Cài đặt dấu ảnh"), 20f, true), LinearLayout.LayoutParams(0, -2, 1f))
-        toolbar.addView(button("Xong", close).apply { contentDescription = Language.text(context, "Đóng cài đặt") }); root.addView(toolbar)
+        toolbar.addView(button(Language.text(context, "Xong"), close).apply { contentDescription = Language.text(context, "Đóng cài đặt") }); root.addView(toolbar)
         val content = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), 0, dp(16), dp(24)) }
         val scroll = ScrollView(context).apply { addView(content) }
         val anchors = linkedMapOf<String, View>()
@@ -163,7 +163,9 @@ class StampSettingsScreen(
             val stableTags = listOf("Khung", "Nền", "Logo", "Mẫu")
             for ((index, item) in listOf(Language.text(context, "Khung") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), Language.text(context, "Nền") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), "Logo" to "Logo", Language.text(context, "Mẫu") to Language.text(context, "Mẫu nhiệm vụ")).withIndex()) {
                 val (label, target) = item
-                shortcuts.addView(button(label) { anchors[target]?.let { scroll.smoothScrollTo(0, it.top) } }.apply { tag = "shortcut-${stableTags[index]}" }, LinearLayout.LayoutParams(0, -2, 1f))
+                shortcuts.addView(button(label) { anchors[target]?.let { scroll.smoothScrollTo(0, it.top) } }.apply {
+                    tag = "shortcut-${stableTags[index]}"; textSize = 12f; setPadding(dp(4), dp(8), dp(4), dp(8)); maxLines = 1
+                }, LinearLayout.LayoutParams(0, -2, 1f))
             }
             root.addView(shortcuts)
         }

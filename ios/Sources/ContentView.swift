@@ -153,7 +153,7 @@ struct NoteView: View {
                 Section(AppLanguage.text("Trường tuỳ biến (Nhãn | Nội dung)")) { CustomFields() }
             }
             .navigationTitle(AppLanguage.text("Ghi chú nhanh"))
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(AppLanguage.text("Xong")) { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
     }
@@ -249,7 +249,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle(AppLanguage.text("Cài đặt dấu ảnh"))
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(AppLanguage.text("Xong")) { dismiss() } } }
             .onChange(of: pick) { item in
                 Task {
                     guard let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) else { return }
@@ -283,3 +283,4 @@ struct AboutView: View {
         .navigationTitle(AppLanguage.text("Thông tin")).navigationBarTitleDisplayMode(.inline)
     }
 }
+
