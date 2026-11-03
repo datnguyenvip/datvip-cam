@@ -18,7 +18,9 @@ When you choose to open a map or share content or a link, the selected app or re
 
 The update integrates Google AdMob and User Messaging Platform (UMP) for a small banner below the camera controls and privacy choices where required. Banners are not included in saved photos or videos. The app does not explicitly attach photos, videos, notes, logos or GPS coordinates to ad requests.
 
-Google Mobile Ads SDK may collect and share IP addresses and coarse location derived from IP or system permissions, permitted device/app/advertising identifiers, app and ad interactions, crash reports and performance diagnostics for advertising, analytics and fraud prevention. Advertising data is encrypted in transit using TLS. Google's handling and retention are subject to its policies and applicable choices and permissions. The developer cannot remotely delete data held by Google.
+Google Mobile Ads SDK may collect and share IP addresses and coarse location derived from IP, permitted device/app/advertising identifiers, app and ad interactions, crash reports and performance diagnostics for advertising, analytics and fraud prevention. Advertising data is encrypted in transit using TLS. Google's handling and retention are subject to its policies and applicable choices and permissions. The developer cannot remotely delete data held by Google.
+
+Publisher privacy personalization is disabled on Android and iOS. On iOS the SDK is also configured not to collect coarse location using system location permissions. Coarse location inferred from IP may still be processed. The app does not request App Tracking Transparency permission.
 
 The app checks UMP privacy status before requesting ads. Where required, an applicable privacy form is presented and an advertising privacy options entry lets you revisit your choices. Declining personalization may still allow limited ads depending on your choices and applicable requirements. System settings also let you manage advertising identifiers and permissions.
 

@@ -18,7 +18,9 @@ Khi bạn chủ động mở bản đồ hoặc chia sẻ ảnh, video hay liên
 
 Bản cập nhật tích hợp Google AdMob và User Messaging Platform để hiển thị banner nhỏ phía dưới giao diện camera và thu thập lựa chọn quyền riêng tư khi cần. Banner không được chèn vào ảnh hoặc video đã lưu. Ứng dụng không chủ động gắn ảnh, video, ghi chú, logo hoặc tọa độ GPS vào yêu cầu quảng cáo.
 
-Google Mobile Ads SDK có thể thu thập và chia sẻ địa chỉ IP và vị trí gần đúng suy ra từ IP hoặc quyền hệ thống, mã định danh thiết bị/ứng dụng/quảng cáo được hệ điều hành cho phép, tương tác với ứng dụng và quảng cáo, dữ liệu chẩn đoán, lỗi và hiệu năng để phân phối quảng cáo, phân tích và phòng chống gian lận. Dữ liệu quảng cáo được mã hóa khi truyền bằng TLS. Việc lưu giữ và xử lý của Google chịu chính sách của Google và các lựa chọn/quyền áp dụng. Nhà phát triển không có công cụ xóa từ xa dữ liệu Google nắm giữ.
+Google Mobile Ads SDK có thể thu thập và chia sẻ địa chỉ IP và vị trí gần đúng suy ra từ IP, mã định danh thiết bị/ứng dụng/quảng cáo được hệ điều hành cho phép, tương tác với ứng dụng và quảng cáo, dữ liệu chẩn đoán, lỗi và hiệu năng để phân phối quảng cáo, phân tích và phòng chống gian lận. Dữ liệu quảng cáo được mã hóa khi truyền bằng TLS. Việc lưu giữ và xử lý của Google chịu chính sách của Google và các lựa chọn/quyền áp dụng. Nhà phát triển không có công cụ xóa từ xa dữ liệu Google nắm giữ.
+
+Ứng dụng tắt cá nhân hóa quảng cáo qua cấu hình nhà phát hành trên cả Android và iOS; trên iOS cũng tắt việc SDK dùng quyền vị trí để thu thập vị trí gần đúng. Vị trí gần đúng suy ra từ IP vẫn có thể được xử lý. Ứng dụng không yêu cầu quyền theo dõi ATT.
 
 Trước khi yêu cầu quảng cáo, ứng dụng kiểm tra trạng thái lựa chọn quyền riêng tư qua UMP. Tại khu vực cần thông báo, bạn được cung cấp biểu mẫu tương ứng; mục tùy chọn quyền riêng tư quảng cáo cho phép thay đổi lựa chọn khi biểu mẫu được yêu cầu. Từ chối cá nhân hóa có thể vẫn cho phép quảng cáo hạn chế theo lựa chọn và quy định áp dụng. Bạn cũng có thể quản lý mã quảng cáo và các quyền trong cài đặt hệ điều hành.
 
