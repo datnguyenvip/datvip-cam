@@ -20,7 +20,8 @@ class AdFreePurchase(private val activity: Activity, private val changed: () -> 
     var details: ProductDetails? = null; private set
     var message = ""; private set
     var busy = false; private set
-    private fun ui(action: () -> Unit) = activity.runOnUiThread { action(); changed() }
+    private var closed = false
+    private fun ui(action: () -> Unit) = activity.runOnUiThread { if (!closed) { action(); changed() } }
     private fun verified(purchase: Purchase): Boolean = runCatching {
         val publicKey = activity.getString(R.string.play_license_key)
         if (publicKey.isBlank() || purchase.packageName != activity.packageName || PRODUCT !in purchase.products || purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return false
@@ -41,7 +42,8 @@ class AdFreePurchase(private val activity: Activity, private val changed: () -> 
         client.queryProductDetailsAsync(query) { result, products -> ui { details = products.productDetailsList.firstOrNull { it.productId == PRODUCT }; if (result.responseCode != BillingClient.BillingResponseCode.OK) message = result.debugMessage } }
     }
     fun restore(userRequested: Boolean = true) {
-        if (!client.isReady) { ui { message = Language.text(activity, "Cửa hàng chưa sẵn sàng") }; return }
+        if (closed) return
+        if (!client.isReady) { if (userRequested) ui { message = Language.text(activity, "Cửa hàng chưa sẵn sàng") }; return }
         ui { busy = true }
         client.queryPurchasesAsync(QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()) { result, purchases ->
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
@@ -62,7 +64,8 @@ class AdFreePurchase(private val activity: Activity, private val changed: () -> 
         val product = details
         val offer = product?.oneTimePurchaseOfferDetailsList?.firstOrNull()
         if (product == null || offer == null || activity.getString(R.string.play_license_key).isBlank()) { ui { message = Language.text(activity, "Sản phẩm chưa được cửa hàng cung cấp") }; return }
-        val item = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(product).setOfferToken(offer.offerToken).build()
+        val item = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(product)
+            .apply { offer.offerToken?.let { setOfferToken(it) } }.build()
         val result = client.launchBillingFlow(activity, BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(item)).build())
         ui { busy = result.responseCode == BillingClient.BillingResponseCode.OK; if (!busy) message = result.debugMessage }
     }
@@ -79,5 +82,5 @@ class AdFreePurchase(private val activity: Activity, private val changed: () -> 
             if (result.responseCode != BillingClient.BillingResponseCode.OK) ui { message = Language.text(activity, "Cửa hàng chưa xác nhận giao dịch. Hãy khôi phục mua hàng khi có mạng.") }
         }
     }
-    fun close() = client.endConnection()
+    fun close() { closed = true; client.endConnection() }
 }
