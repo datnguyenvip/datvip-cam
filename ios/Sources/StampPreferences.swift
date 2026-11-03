@@ -244,20 +244,20 @@ struct NotePresetsSection: View {
 
     private func use(_ preset: NotePreset) {
         preset.apply()
-        feedback = "Đang dùng mẫu: " + preset.name
+        feedback = AppLanguage.text("Đang dùng mẫu: ") + preset.name
     }
 
     var body: some View {
         Section {
             Text(
-                "Chọn mẫu có sẵn hoặc lưu nhiệm vụ, ghi chú và 4 trường tuỳ biến. GPS luôn lấy mới."
+                AppLanguage.text("Chọn mẫu có sẵn hoặc lưu nhiệm vụ, ghi chú và 4 trường tuỳ biến. GPS luôn lấy mới.")
             )
             .font(.caption)
             .foregroundColor(.secondary)
 
-            TextField("Tên mẫu ghi chú", text: $name)
+            TextField(AppLanguage.text("Tên mẫu ghi chú"), text: $name)
 
-            Button("Lưu nội dung hiện tại thành mẫu") {
+            Button(AppLanguage.text("Lưu nội dung hiện tại thành mẫu")) {
                 let title = String(
                     name.trimmingCharacters(
                         in: .whitespacesAndNewlines
@@ -265,7 +265,7 @@ struct NotePresetsSection: View {
                 )
 
                 guard !title.isEmpty else {
-                    feedback = "Hãy nhập tên mẫu."
+                    feedback = AppLanguage.text("Hãy nhập tên mẫu.")
                     return
                 }
 
@@ -276,12 +276,12 @@ struct NotePresetsSection: View {
                         in: .whitespacesAndNewlines
                     ).isEmpty
                 }) else {
-                    feedback = "Hãy nhập nội dung trước khi lưu mẫu."
+                    feedback = AppLanguage.text("Hãy nhập nội dung trước khi lưu mẫu.")
                     return
                 }
 
                 guard presets.count < maxPresets else {
-                    feedback = "Đã đủ 20 mẫu."
+                    feedback = AppLanguage.text("Đã đủ 20 mẫu.")
                     return
                 }
 
@@ -289,7 +289,7 @@ struct NotePresetsSection: View {
                     $0.name.caseInsensitiveCompare(title)
                         == .orderedSame
                 }) else {
-                    feedback = "Tên mẫu đã tồn tại."
+                    feedback = AppLanguage.text("Tên mẫu đã tồn tại.")
                     return
                 }
 
@@ -299,7 +299,7 @@ struct NotePresetsSection: View {
                     ]
                 )
                 name = ""
-                feedback = "Đã lưu mẫu."
+                feedback = AppLanguage.text("Đã lưu mẫu.")
             }
 
             ForEach(presets) { preset in
@@ -312,11 +312,11 @@ struct NotePresetsSection: View {
                     Spacer()
 
                     Menu {
-                        Button("Dùng mẫu") {
+                        Button(AppLanguage.text("Dùng mẫu")) {
                             use(preset)
                         }
 
-                        Button("Cập nhật từ nội dung hiện tại") {
+                        Button(AppLanguage.text("Cập nhật từ nội dung hiện tại")) {
                             var items = presets
                             if let i = items.firstIndex(where: {
                                 $0.id == preset.id
@@ -324,11 +324,11 @@ struct NotePresetsSection: View {
                                 items[i].values =
                                     NotePreset.currentValues()
                                 save(items)
-                                feedback = "Đã cập nhật mẫu."
+                                feedback = AppLanguage.text("Đã cập nhật mẫu.")
                             }
                         }
 
-                        Button("Đổi tên theo ô tên mẫu") {
+                        Button(AppLanguage.text("Đổi tên theo ô tên mẫu")) {
                             let title = String(
                                 name.trimmingCharacters(
                                     in: .whitespacesAndNewlines
@@ -336,7 +336,7 @@ struct NotePresetsSection: View {
                             )
 
                             guard !title.isEmpty else {
-                                feedback = "Nhập tên mới trước."
+                                feedback = AppLanguage.text("Nhập tên mới trước.")
                                 return
                             }
 
@@ -345,7 +345,7 @@ struct NotePresetsSection: View {
                                 $0.name.caseInsensitiveCompare(title)
                                     == .orderedSame
                             }) else {
-                                feedback = "Tên mẫu đã tồn tại."
+                                feedback = AppLanguage.text("Tên mẫu đã tồn tại.")
                                 return
                             }
 
@@ -356,12 +356,12 @@ struct NotePresetsSection: View {
                                 items[i].name = title
                                 save(items)
                                 name = ""
-                                feedback = "Đã đổi tên."
+                                feedback = AppLanguage.text("Đã đổi tên.")
                             }
                         }
 
                         Button(
-                            "Xoá mẫu",
+                            AppLanguage.text("Xoá mẫu"),
                             role: .destructive
                         ) {
                             save(presets.filter {
@@ -380,7 +380,7 @@ struct NotePresetsSection: View {
                     .foregroundColor(.secondary)
             }
         } header: {
-            Text("Mẫu ghi chú (\(presets.count)/\(maxPresets))")
+            Text(AppLanguage.text("Mẫu ghi chú ({0}/{1})", String(describing: (presets.count)), String(describing: (maxPresets))))
         }
         .onAppear {
             installDefaultsIfNeeded()
@@ -413,28 +413,28 @@ struct StampBackgroundSection: View {
     }
 
     var body: some View {
-        Section("Kích thước và nền khung dấu") {
-            Text("Cỡ dấu: \(Int(min(1.2, max(0.5, displaySize)) * 100))%")
+        Section(AppLanguage.text("Kích thước và nền khung dấu")) {
+            Text(AppLanguage.text("Cỡ dấu: {0}%", String(describing: (Int(min(1.2, max(0.5, displaySize)) * 100)))))
             HStack {
-                Button("Rất nhỏ") { displaySize = 0.5 }
+                Button(AppLanguage.text("Rất nhỏ")) { displaySize = 0.5 }
                 Spacer()
-                Button("Gọn") { displaySize = StampPreferences.defaultSize }
+                Button(AppLanguage.text("Gọn")) { displaySize = StampPreferences.defaultSize }
                 Spacer()
-                Button("Lớn") { displaySize = 1.0 }
+                Button(AppLanguage.text("Lớn")) { displaySize = 1.0 }
             }.buttonStyle(.borderless)
             Slider(value: $displaySize, in: 0.5...1.2, step: 0.05) {
-                Text("Kích thước dấu")
-            } minimumValueLabel: { Text("Nhỏ") } maximumValueLabel: { Text("Lớn") }
-            Text("Chỉnh trực tiếp theo hình xem thử. Khung tự mở ngang khi có nhiều nội dung.")
+                Text(AppLanguage.text("Kích thước dấu"))
+            } minimumValueLabel: { Text(AppLanguage.text("Nhỏ")) } maximumValueLabel: { Text(AppLanguage.text("Lớn")) }
+            Text(AppLanguage.text("Chỉnh trực tiếp theo hình xem thử. Khung tự mở ngang khi có nhiều nội dung."))
                 .font(.caption).foregroundColor(.secondary)
             ColorPicker(
-                "Màu nền",
+                AppLanguage.text("Màu nền"),
                 selection: selectedColor,
                 supportsOpacity: false
             )
 
             Text(
-                "Độ đậm nền: \(Int(min(1, max(0, opacity)) * 100))%"
+                AppLanguage.text("Độ đậm nền: {0}%", String(describing: (Int(min(1, max(0, opacity)) * 100))))
             )
 
             Slider(
@@ -443,28 +443,28 @@ struct StampBackgroundSection: View {
                 step: 0.05
             )
 
-            Text("0%: nền trong suốt hoàn toàn. 100%: nền đậm hoàn toàn.")
+            Text(AppLanguage.text("0%: nền trong suốt hoàn toàn. 100%: nền đậm hoàn toàn."))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            let sample = StampLines(head: "10:51:00", date: "Thứ Hai, 02/11/2026 (GMT+7)",
-                                    project: "Nhiệm vụ: Nhật ký công việc",
+            let sample = StampLines(head: "10:51:00", date: AppLanguage.text("Thứ Hai, 02/11/2026 (GMT+7)"),
+                                    project: AppLanguage.text("Nhiệm vụ: Nhật ký công việc"),
                                     address: "175 Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh",
-                                    custom: ["Địa điểm: Chốt giao thông", "ANCS: DatVip – tổ 3"],
-                                    rows: ["Mã xác thực: 12345678"])
+                                    custom: [AppLanguage.text("Địa điểm: Chốt giao thông"), "ANCS: DatVip – tổ 3"],
+                                    rows: [AppLanguage.text("Mã xác thực: 12345678")])
             Image(uiImage: model.overlayImage(CGSize(width: 900, height: 1200), sample))
                 .resizable().scaledToFit()
                 .background(LinearGradient(colors: [.gray, .blue.opacity(0.35), .black], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(height: 260).frame(maxWidth: .infinity)
-                .accessibilityLabel("Xem thử khung dấu")
-            Text(logoOn ? "Logo: \(Int(min(1, max(0, logoOpacity)) * 100))% độ đậm\(removeWhite ? " · Đã ẩn nền trắng" : "")" : "Logo đang tắt")
+                .accessibilityLabel(AppLanguage.text("Xem thử khung dấu"))
+            Text(logoOn ? AppLanguage.text("Logo: {0}% độ đậm{1}", String(describing: (Int(min(1, max(0, logoOpacity)) * 100))), String(describing: (removeWhite ? AppLanguage.text(" · Đã ẩn nền trắng") : ""))) : AppLanguage.text("Logo đang tắt"))
                 .font(.caption).foregroundColor(.secondary)
 
-            Button("Khôi phục nền mặc định") {
+            Button(AppLanguage.text("Khôi phục nền mặc định")) {
                 hex = StampPreferences.defaultHex
                 opacity = StampPreferences.defaultOpacity
             }
-            Button("Khôi phục cỡ dấu gọn") { displaySize = StampPreferences.defaultSize }
+            Button(AppLanguage.text("Khôi phục cỡ dấu gọn")) { displaySize = StampPreferences.defaultSize }
         }
     }
 }

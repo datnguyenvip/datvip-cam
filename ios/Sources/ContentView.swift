@@ -27,7 +27,7 @@ struct KeyField: View {
 struct CustomFields: View {
     var body: some View {
         ForEach(1...4, id: \.self) { i in
-            HStack { KeyField("f\(i)l", "Nhãn \(i) (VD: Tên)"); Divider(); KeyField("f\(i)v", "Nội dung (VD: Đạt)") }
+            HStack { KeyField("f\(i)l", AppLanguage.text("Nhãn {0} (VD: Tên)", String(describing: (i)))); Divider(); KeyField("f\(i)v", AppLanguage.text("Nội dung (VD: Đạt)")) }
         }
     }
 }
@@ -60,7 +60,7 @@ struct ContentView: View {
                 }
                 .frame(width: g.size.width, height: g.size.height)
                 .overlay(alignment: .topLeading) {
-                    Text(m.loc != nil ? "● GPS ±\(Int(m.loc!.horizontalAccuracy))m" : "● Đang định vị…")
+                    Text(m.loc != nil ? "● GPS ±\(Int(m.loc!.horizontalAccuracy))m" : AppLanguage.text("● Đang định vị…"))
                         .font(.system(size: 13, weight: .bold)).padding(.horizontal, 12).padding(.vertical, 6)
                         .background(m.loc != nil ? Color.green.opacity(0.85) : Color.red.opacity(0.85)).clipShape(Capsule()).padding(10)
                 }
@@ -97,7 +97,7 @@ struct ContentView: View {
 
     private var modeBar: some View {
         HStack(spacing: 28) {
-            Button("Ảnh") { m.setVideoMode(false) }.foregroundColor(m.videoMode ? .gray : yellow)
+            Button(AppLanguage.text("Ảnh")) { m.setVideoMode(false) }.foregroundColor(m.videoMode ? .gray : yellow)
             Button("Video") { m.setVideoMode(true) }.foregroundColor(m.videoMode ? yellow : .gray)
         }
         .font(.system(size: 15, weight: .bold)).frame(maxWidth: .infinity).padding(.top, 8)
@@ -148,10 +148,10 @@ struct NoteView: View {
         NavigationStack {
             Form {
                 NotePresetsSection()
-                Section("Ghi chú") { KeyField("proj", "Nhiệm vụ / công việc"); KeyField("note", "Ghi chú") }
-                Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
+                Section(AppLanguage.text("Ghi chú")) { KeyField("proj", AppLanguage.text("Nhiệm vụ / công việc")); KeyField("note", AppLanguage.text("Ghi chú")) }
+                Section(AppLanguage.text("Trường tuỳ biến (Nhãn | Nội dung)")) { CustomFields() }
             }
-            .navigationTitle("Ghi chú nhanh")
+            .navigationTitle(AppLanguage.text("Ghi chú nhanh"))
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
@@ -185,6 +185,7 @@ struct Thumb: View {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject private var language: LanguageSelection
     @Environment(\.dismiss) private var dismiss
     @AppStorage("time") private var time = true
     @AppStorage("gps") private var gps = true
@@ -201,38 +202,45 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Nội dung dấu") {
-                    KeyField("proj", "Tên nhiệm vụ / công việc")
-                    KeyField("addr", "Địa chỉ (để trống = tự lấy theo GPS)")
-                    KeyField("note", "Ghi chú")
-                    KeyField("wm", "Watermark chìm (tên công ty…)")
+                Section(AppLanguage.text("Ngôn ngữ")) {
+                    Picker(AppLanguage.text("Ngôn ngữ"), selection: $language.choice) {
+                        Text(AppLanguage.text("Theo điện thoại")).tag("system")
+                        Text("Tiếng Việt").tag("vi")
+                        Text("English").tag("en")
+                    }
                 }
-                Section("Trường tuỳ biến (Nhãn | Nội dung)") { CustomFields() }
+                Section(AppLanguage.text("Nội dung dấu")) {
+                    KeyField("proj", AppLanguage.text("Tên nhiệm vụ / công việc"))
+                    KeyField("addr", AppLanguage.text("Địa chỉ (để trống = tự lấy theo GPS)"))
+                    KeyField("note", AppLanguage.text("Ghi chú"))
+                    KeyField("wm", AppLanguage.text("Watermark chìm (tên công ty…)"))
+                }
+                Section(AppLanguage.text("Trường tuỳ biến (Nhãn | Nội dung)")) { CustomFields() }
                 NotePresetsSection()
                 StampBackgroundSection(logoRevision: logoRevision)
-                Section("Chụp ảnh") { Toggle("Tiếng chụp ảnh", isOn: $shutterSound) }
-                Section("Hiển thị trên ảnh") {
-                    Toggle("Ngày giờ", isOn: $time); Toggle("Toạ độ GPS", isOn: $gps); Toggle("Độ cao", isOn: $alt)
-                    Toggle("Hướng la bàn", isOn: $hdg); Toggle("Watermark chìm", isOn: $wmOn)
+                Section(AppLanguage.text("Chụp ảnh")) { Toggle(AppLanguage.text("Tiếng chụp ảnh"), isOn: $shutterSound) }
+                Section(AppLanguage.text("Hiển thị trên ảnh")) {
+                    Toggle(AppLanguage.text("Ngày giờ"), isOn: $time); Toggle(AppLanguage.text("Toạ độ GPS"), isOn: $gps); Toggle(AppLanguage.text("Độ cao"), isOn: $alt)
+                    Toggle(AppLanguage.text("Hướng la bàn"), isOn: $hdg); Toggle(AppLanguage.text("Watermark chìm"), isOn: $wmOn)
                 }
                 Section("Logo") {
-                    PhotosPicker(selection: $pick, matching: .images) { Text("Chọn logo từ thư viện") }
-                    Toggle("Hiện logo lên ảnh", isOn: $logoOn)
-                    Text("Độ đậm logo: \(Int(min(1, max(0, logoOpacity)) * 100))%")
-                    Slider(value: $logoOpacity, in: 0...1, step: 0.05) { Text("Độ đậm logo") }
-                    Toggle("Ẩn nền trắng của logo", isOn: $removeWhiteLogoBackground)
-                    Text("Ẩn vùng trắng bên ngoài logo, giữ nguyên tệp gốc. Tắt tùy chọn để khôi phục.")
+                    PhotosPicker(selection: $pick, matching: .images) { Text(AppLanguage.text("Chọn logo từ thư viện")) }
+                    Toggle(AppLanguage.text("Hiện logo lên ảnh"), isOn: $logoOn)
+                    Text(AppLanguage.text("Độ đậm logo: {0}%", String(describing: (Int(min(1, max(0, logoOpacity)) * 100)))))
+                    Slider(value: $logoOpacity, in: 0...1, step: 0.05) { Text(AppLanguage.text("Độ đậm logo")) }
+                    Toggle(AppLanguage.text("Ẩn nền trắng của logo"), isOn: $removeWhiteLogoBackground)
+                    Text(AppLanguage.text("Ẩn vùng trắng bên ngoài logo, giữ nguyên tệp gốc. Tắt tùy chọn để khôi phục."))
                         .font(.caption).foregroundColor(.secondary)
-                    Button("Xoá logo", role: .destructive) {
+                    Button(AppLanguage.text("Xoá logo"), role: .destructive) {
                         try? FileManager.default.removeItem(at: CameraModel.logoURL)
                         logoRevision += 1
                     }
                 }
-                Section("Ứng dụng") {
-                    NavigationLink("Thông tin") { AboutView() }
+                Section(AppLanguage.text("Ứng dụng")) {
+                    NavigationLink(AppLanguage.text("Thông tin")) { AboutView() }
                 }
             }
-            .navigationTitle("Cài đặt dấu ảnh")
+            .navigationTitle(AppLanguage.text("Cài đặt dấu ảnh"))
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { dismiss() } } }
             .onChange(of: pick) { item in
                 Task {
@@ -254,16 +262,16 @@ struct AboutView: View {
     var body: some View {
         Form {
             Section {
-                Text("Datvip Cam").font(.title2.bold())
-                Text("Phiên bản: \(version)")
-                Text("app chụp hình hiện trường thời gian thực")
+                Text(AppLanguage.name).font(.title2.bold())
+                Text(AppLanguage.text("Phiên bản: {0}", String(describing: (version))))
+                Text(AppLanguage.text("app chụp hình hiện trường thời gian thực"))
             }
-            Section("Phát triển") {
+            Section(AppLanguage.text("Phát triển")) {
                 Text("Nguyễn Đắc Đạt")
                 Link("Email: chobanchotoi@gmail.com", destination: URL(string: "mailto:chobanchotoi@gmail.com")!)
             }
             Section { Text("© 2026 Nguyễn Đắc Đạt").foregroundColor(.secondary) }
         }
-        .navigationTitle("Thông tin").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(AppLanguage.text("Thông tin")).navigationBarTitleDisplayMode(.inline)
     }
 }

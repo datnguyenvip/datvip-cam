@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "Camera HT";
+"NSCameraUsageDescription" = "Camera HT cần camera để chụp ảnh và quay video.";
+"NSLocationWhenInUseUsageDescription" = "Camera HT dùng vị trí để đóng dấu GPS và tra cứu địa chỉ.";
+"NSMicrophoneUsageDescription" = "Camera HT cần micro để quay video có âm thanh.";
+"NSPhotoLibraryAddUsageDescription" = "Camera HT lưu ảnh và video vào thư viện.";

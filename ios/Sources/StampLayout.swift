@@ -99,7 +99,7 @@ struct StampLayout {
         func append(_ value: String, _ role: StampLines.Role?, x: CGFloat, y: CGFloat, width: CGFloat) -> CGFloat {
             var face = font(role)
             var ink = color(role)
-            if role == .detail && value.hasPrefix("Mã xác thực") {
+            if role == .detail && (value.hasPrefix("Mã xác thực") || value.hasPrefix("Verification code")) {
                 face = .systemFont(ofSize: max(1, 2.6 * u * scale))
                 ink = UIColor(white: 0.65, alpha: 1)
             }

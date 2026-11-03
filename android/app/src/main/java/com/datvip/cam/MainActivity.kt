@@ -159,9 +159,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var autoAddr = ""
     private var lastGeo = 0L
     private var lastUri: Uri? = null
-    private val days = arrayOf("Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy")
-    private val dirs = arrayOf("B", "ĐB", "Đ", "ĐN", "N", "TN", "T", "TB")
-    private val boolKeys = listOf("time" to "Ngày giờ", "gps" to "Toạ độ GPS", "alt" to "Độ cao", "hdg" to "Hướng la bàn", "wmOn" to "Watermark chìm", "logoOn" to "Hiện logo lên ảnh", "shutterSound" to "Tiếng chụp ảnh")
+    private val days get() = arrayOf(Language.text(this@MainActivity, "Chủ nhật"), Language.text(this@MainActivity, "Thứ hai"), Language.text(this@MainActivity, "Thứ ba"), Language.text(this@MainActivity, "Thứ tư"), Language.text(this@MainActivity, "Thứ năm"), Language.text(this@MainActivity, "Thứ sáu"), Language.text(this@MainActivity, "Thứ bảy"))
+    private val boolKeys get() = listOf("time" to Language.text(this@MainActivity, "Ngày giờ"), "gps" to Language.text(this@MainActivity, "Toạ độ GPS"), "alt" to Language.text(this@MainActivity, "Độ cao"), "hdg" to Language.text(this@MainActivity, "Hướng la bàn"), "wmOn" to Language.text(this@MainActivity, "Watermark chìm"), "logoOn" to Language.text(this@MainActivity, "Hiện logo lên ảnh"), "shutterSound" to Language.text(this@MainActivity, "Tiếng chụp ảnh"))
 
     private fun s(k: String) = sp.getString(k, "") ?: ""
     private fun b(k: String) = sp.getBoolean(k, true)
@@ -176,9 +175,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
         if (videoMode && !videoBusy()) {
             if (allowed) startVideo() else AlertDialog.Builder(this)
-                .setMessage("Chưa cho phép micro. Bạn có thể quay video không có tiếng hoặc cấp quyền micro trong cài đặt điện thoại.")
-                .setPositiveButton("Quay không tiếng") { _, _ -> startVideo() }
-                .setNegativeButton("Huỷ", null).show()
+                .setMessage(Language.text(this@MainActivity, "Chưa cho phép micro. Bạn có thể quay video không có tiếng hoặc cấp quyền micro trong cài đặt điện thoại."))
+                .setPositiveButton(Language.text(this@MainActivity, "Quay không tiếng")) { _, _ -> startVideo() }
+                .setNegativeButton(Language.text(this@MainActivity, "Huỷ"), null).show()
         }
     }
     private fun granted(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
@@ -193,7 +192,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             override fun handleOnBackPressed() {
                 if (videoBusy()) {
                     if (recording != null) stopVideo()
-                    toast("Hãy đợi lưu video xong")
+                    toast(Language.text(this@MainActivity, "Hãy đợi lưu video xong"))
                 } else {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
@@ -229,7 +228,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             background = GradientDrawable().apply { cornerRadius = dp(16).toFloat() }
             setOnClickListener { locateDialog() }
         }
-        setGpsPill(false, "Đang định vị…")
+        setGpsPill(false, Language.text(this@MainActivity, "Đang định vị…"))
         stage.addView(gpsTv, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(10), dp(12), 0, 0) })
         fun mini(t: String, f: () -> Unit) = TextView(this).apply {
             text = t; textSize = 18f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
@@ -250,7 +249,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         stage.addView(recordStatus, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(52) })
         val modes = LinearLayout(this).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) }
         photoModeButton = TextView(this).apply {
-            text = "Ảnh"; textSize = 17f; gravity = Gravity.CENTER; setPadding(dp(24), dp(10), dp(24), dp(10))
+            text = Language.text(this@MainActivity, "Ảnh"); textSize = 17f; gravity = Gravity.CENTER; setPadding(dp(24), dp(10), dp(24), dp(10))
             setOnClickListener { setVideoMode(false) }
         }
         videoModeButton = TextView(this).apply {
@@ -280,16 +279,16 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 } else shoot()
             }
         }
-        bar.addView(cell(chip("🖼") { if (!videoBusy()) openGallery() else toast("Hãy đợi lưu video") }, 52), one())
+        bar.addView(cell(chip("🖼") { if (!videoBusy()) openGallery() else toast(Language.text(this@MainActivity, "Hãy đợi lưu video")) }, 52), one())
         bar.addView(cell(shutter, 78), one())
         val flipCamera = ImageView(this).apply {
             setImageResource(R.drawable.ic_camera_flip); setPadding(dp(11), dp(11), dp(11), dp(11))
-            contentDescription = "Đổi camera trước/sau"
+            contentDescription = Language.text(this@MainActivity, "Đổi camera trước/sau")
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF1B2B36.toInt()); setStroke(dp(1), 0xFF2F4452.toInt()) }
             setOnClickListener { if (!videoBusy()) { front = !front; bind() } }
         }
         bar.addView(cell(flipCamera, 52), one())
-        bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast("Hãy đợi lưu video") }, 52), one())
+        bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast(Language.text(this@MainActivity, "Hãy đợi lưu video")) }, 52), one())
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -332,7 +331,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 p.bindToLifecycle(this, sel, preview, ic)
                 imageCapture = ic
             }
-        } catch (e: Exception) { toast("Không mở được camera: ${e.message}") }
+        } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không mở được camera: {0}", (e.message))) }
     }
 
     private fun setVideoMode(on: Boolean) {
@@ -348,10 +347,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         photoModeButton.isEnabled = !videoBusy(); videoModeButton.isEnabled = !videoBusy()
         shutter.isEnabled = !videoProcessing && !recordPending
         shutter.contentDescription = when {
-            videoProcessing -> "Đang lưu video"
-            recording != null -> "Dừng quay video"
-            videoMode -> "Bắt đầu quay video"
-            else -> "Chụp ảnh"
+            videoProcessing -> Language.text(this@MainActivity, "Đang lưu video")
+            recording != null -> Language.text(this@MainActivity, "Dừng quay video")
+            videoMode -> Language.text(this@MainActivity, "Bắt đầu quay video")
+            else -> Language.text(this@MainActivity, "Chụp ảnh")
         }
         shutter.background = GradientDrawable().apply {
             shape = if (recording != null) GradientDrawable.RECTANGLE else GradientDrawable.OVAL
@@ -360,14 +359,14 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             setStroke(dp(5), Color.WHITE)
         }
         recordStatus.visibility = if (videoBusy()) View.VISIBLE else View.GONE
-        if (videoProcessing) recordStatus.text = "Đang đóng dấu và lưu video…"
-        else if (recordPending) recordStatus.text = "Đang bắt đầu…"
+        if (videoProcessing) recordStatus.text = Language.text(this@MainActivity, "Đang đóng dấu và lưu video…")
+        else if (recordPending) recordStatus.text = Language.text(this@MainActivity, "Đang bắt đầu…")
     }
 
     @SuppressLint("MissingPermission")
     private fun startVideo() {
         if (videoBusy() || !videoMode) return
-        val capture = videoCapture ?: run { toast("Camera chưa sẵn sàng. Hãy chọn lại Video"); return }
+        val capture = videoCapture ?: run { toast(Language.text(this@MainActivity, "Camera chưa sẵn sàng. Hãy chọn lại Video")); return }
         val raw = File(filesDir, "video-pending").apply { mkdirs() }
             .let { File(it, "raw_${System.currentTimeMillis()}.mp4") }
         videoStart = Date(); videoLocation = loc?.let { Location(it) }
@@ -398,19 +397,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                         if (event.hasError() && event.error != VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE) {
                             videoProcessing = false
                             updateVideoUi()
-                            toast("Quay video lỗi (${event.error}). Hãy thử lại; bản quay tạm được giữ trong app.")
+                            toast(Language.text(this@MainActivity, "Quay video lỗi ({0}). Hãy thử lại; bản quay tạm được giữ trong app.", (event.error)))
                         } else if (raw.length() > 0) {
                             addVideoFrame(event.recordingStats.recordedDurationNanos / 1000)
                             exportVideo(raw, videoFrames.toList(), videoStart, videoLocation, videoLandscape)
                         } else {
-                            raw.delete(); videoProcessing = false; updateVideoUi(); toast("Video quá ngắn hoặc không có dữ liệu")
+                            raw.delete(); videoProcessing = false; updateVideoUi(); toast(Language.text(this@MainActivity, "Video quá ngắn hoặc không có dữ liệu"))
                         }
                     }
                 }
             }
         } catch (e: Exception) {
             recording = null; recordPending = false; raw.delete()
-            updateVideoUi(); toast("Không quay được: ${e.message}")
+            updateVideoUi(); toast(Language.text(this@MainActivity, "Không quay được: {0}", (e.message)))
         }
     }
 
@@ -419,7 +418,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (second == lastVideoSecond) return
         lastVideoSecond = second
         val line = lines(Date(videoStart.time + second * 1000))
-        videoFrames.add(VideoStampFrame(second * 1_000_000, Stamp(line.head, line.date, line.rows + "Mã xác thực: $videoCode")))
+        videoFrames.add(VideoStampFrame(second * 1_000_000, Stamp(line.head, line.date, line.rows + Language.text(this@MainActivity, "Mã xác thực: {0}", (videoCode)))))
     }
 
     private fun stopVideo() {
@@ -435,10 +434,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         fun fail(message: String) {
             output.delete(); videoProcessing = false; updateVideoUi()
             if (!destroying && !isFinishing) AlertDialog.Builder(this)
-                .setTitle("Chưa lưu được video")
-                .setMessage("$message\nBản quay gốc còn trong app. Bạn có thể thử xử lý lại.")
-                .setPositiveButton("Thử lại") { _, _ -> exportVideo(raw, frames, date, location, landscape) }
-                .setNegativeButton("Để sau", null).show()
+                .setTitle(Language.text(this@MainActivity, "Chưa lưu được video"))
+                .setMessage(Language.text(this@MainActivity, "{0}\nBản quay gốc còn trong app. Bạn có thể thử xử lý lại.", (message)))
+                .setPositiveButton(Language.text(this@MainActivity, "Thử lại")) { _, _ -> exportVideo(raw, frames, date, location, landscape) }
+                .setNegativeButton(Language.text(this@MainActivity, "Để sau"), null).show()
         }
         val metadata = File(raw.path + ".json")
         val logoFile = File(raw.path + ".png")
@@ -460,7 +459,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 metadata.writeText(data.toString())
                 data
             } else JSONObject(metadata.readText())
-        } catch (e: Exception) { fail(e.localizedMessage ?: "Không lưu được bản quay tạm"); return }
+        } catch (e: Exception) { fail(e.localizedMessage ?: Language.text(this@MainActivity, "Không lưu được bản quay tạm")); return }
         val frozenLogo = BitmapFactory.decodeFile(logoFile.path)?.let { trimLogo(it) }
         val frozenWatermark = job.optString("watermark")
         val frozenBackground = job.optInt("background", StampSettings.background(sp))
@@ -478,9 +477,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                         put(MediaStore.Video.Media.IS_PENDING, 1)
                     }
                     val destination = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                        ?: error("Không tạo được tệp video")
+                        ?: error(Language.text(this@MainActivity, "Không tạo được tệp video"))
                     uri = destination
-                    val stream = contentResolver.openOutputStream(destination) ?: error("Không mở được tệp video")
+                    val stream = contentResolver.openOutputStream(destination) ?: error(Language.text(this@MainActivity, "Không mở được tệp video"))
                     stream.use { target -> output.inputStream().use { it.copyTo(target) } }
                     contentResolver.update(destination, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
                     location?.let { sp.edit().putString("gps_$name", "${it.latitude},${it.longitude}").apply() }
@@ -489,11 +488,11 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                         videoProcessing = false
                         lastName = name; lastUri = destination; lastMime = "video/mp4"; lastShare = mapLinksOnly(job.optString("share"))
                         updateVideoUi()
-                        toast("Đã lưu video: Movies/DatvipCam")
+                        toast(Language.text(this@MainActivity, "Đã lưu video: Movies/DatvipCam"))
                     }
                 } catch (e: Exception) {
                     uri?.let { contentResolver.delete(it, null, null) }
-                    runOnUiThread { fail(e.localizedMessage ?: "Lỗi lưu video") }
+                    runOnUiThread { fail(e.localizedMessage ?: Language.text(this@MainActivity, "Lỗi lưu video")) }
                 }
             }
         }, { message -> fail(message) })
@@ -505,9 +504,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val metadata = File(filesDir, "video-pending").listFiles()
             ?.filter { it.extension == "json" && File(it.path.removeSuffix(".json")).exists() }
             ?.minByOrNull { it.lastModified() } ?: return
-        AlertDialog.Builder(this).setTitle("Video chưa lưu xong")
-            .setMessage("Có bản quay chưa đóng dấu xong. Bạn muốn tiếp tục lưu không?")
-            .setPositiveButton("Tiếp tục lưu") { _, _ ->
+        AlertDialog.Builder(this).setTitle(Language.text(this@MainActivity, "Video chưa lưu xong"))
+            .setMessage(Language.text(this@MainActivity, "Có bản quay chưa đóng dấu xong. Bạn muốn tiếp tục lưu không?"))
+            .setPositiveButton(Language.text(this@MainActivity, "Tiếp tục lưu")) { _, _ ->
                 try {
                     val data = JSONObject(metadata.readText())
                     val timeline = data.getJSONArray("frames")
@@ -525,8 +524,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                     videoMode = true
                     bind()
                     exportVideo(File(metadata.path.removeSuffix(".json")), frames, Date(data.getLong("date")), location, data.getBoolean("landscape"))
-                } catch (e: Exception) { toast("Không đọc được bản quay tạm: ${e.message}") }
-            }.setNegativeButton("Để sau", null).show()
+                } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không đọc được bản quay tạm: {0}", (e.message))) }
+            }.setNegativeButton(Language.text(this@MainActivity, "Để sau"), null).show()
     }
 
     private fun shoot() {
@@ -534,9 +533,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         ic.takePicture(ex, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 runOnUiThread { if (!destroying && b("shutterSound")) shutterSound.play(MediaActionSound.SHUTTER_CLICK) }
-                try { process(image) } catch (e: Exception) { toast("Lỗi lưu ảnh: ${e.message}") } finally { image.close() }
+                try { process(image) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close() }
             }
-            override fun onError(e: ImageCaptureException) { toast("Chụp lỗi: ${e.message}") }
+            override fun onError(e: ImageCaptureException) { toast(Language.text(this@MainActivity, "Chụp lỗi: {0}", (e.message))) }
         })
     }
 
@@ -553,7 +552,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (!bmp.isMutable) bmp = bmp.copy(Bitmap.Config.ARGB_8888, true)
         val d = Date()
         val L = lines(d)
-        val rows = L.rows + ("Mã xác thực: " + code(d))
+        val rows = L.rows + (Language.text(this@MainActivity, "Mã xác thực: ") + code(d))
         stamp(bmp, Stamp(L.head, L.date, rows))
         val name = "DatvipCam_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(d) + ".jpg"
         val cv = ContentValues().apply {
@@ -578,7 +577,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         lastMime = "image/jpeg"
         gl?.let { sp.edit().putString("gps_$name", "${it.latitude},${it.longitude}").apply() }
         lastShare = shareText(d, loc)
-        toast("Đã lưu: Pictures/DatvipCam")
+        toast(Language.text(this@MainActivity, "Đã lưu: Pictures/DatvipCam"))
     }
 
     /* ---------- Nội dung dấu ---------- */
@@ -592,16 +591,16 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             date = "${days[cal.get(Calendar.DAY_OF_WEEK) - 1]}, ${p2(cal.get(Calendar.DAY_OF_MONTH))}/${p2(cal.get(Calendar.MONTH) + 1)}/${cal.get(Calendar.YEAR)} (GMT${if (off >= 0) "+" else ""}$off)"
         }
         val rows = ArrayList<String>()
-        if (s("proj").isNotEmpty()) rows.add("Nhiệm vụ: " + s("proj"))
+        if (s("proj").isNotEmpty()) rows.add(Language.text(this@MainActivity, "Nhiệm vụ: ") + s("proj"))
         val addr = if (s("addr").isNotEmpty()) s("addr") else autoAddr
         if (addr.isNotEmpty()) rows.add("\u200C" + addr)
         for (i in 1..4) { val lb = s("f${i}l"); val v = s("f${i}v"); if (v.isNotEmpty()) rows.add("\u200B" + (if (lb.isNotEmpty()) "$lb: $v" else v)) }
         val l = loc
-        if (b("gps")) rows.add(if (l != null) "📍 " + String.format(Locale.US, "Vĩ độ %.6f, Kinh độ %.6f (±%dm)", l.latitude, l.longitude, l.accuracy.toInt()) else "📍 Chưa có toạ độ GPS")
-        if (b("alt") && l != null && l.hasAltitude()) rows.add("Độ cao ${l.altitude.toInt()} m")
+        if (b("gps")) rows.add(if (l != null) "📍 " + String.format(Locale.US, Language.text(this@MainActivity, "Vĩ độ %.6f, Kinh độ %.6f (±%dm)"), l.latitude, l.longitude, l.accuracy.toInt()) else Language.text(this@MainActivity, "📍 Chưa có toạ độ GPS"))
+        if (b("alt") && l != null && l.hasAltitude()) rows.add(Language.text(this@MainActivity, "Độ cao {0} m", (l.altitude.toInt())))
         val h = hdg
-        if (b("hdg") && h != null) rows.add("Hướng ${h.toInt()}° ${dirs[Math.round(h / 45f) % 8]}")
-        if (s("note").isNotEmpty()) rows.add("Ghi chú: " + s("note"))
+        if (b("hdg") && h != null) rows.add(Language.text(this@MainActivity, "Hướng {0}° {1}", (h.toInt()), (Language.direction(this, h))))
+        if (s("note").isNotEmpty()) rows.add(Language.text(this@MainActivity, "Ghi chú: ") + s("note"))
         return Stamp(head, date, rows)
     }
     private fun code(d: Date): String {
@@ -612,7 +611,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private fun refresh() {
         val now = Date(); val content = lines(now)
         val verification = if (recording != null || recordPending) videoCode else code(now)
-        stampOverlay.stamp = Stamp(content.head, content.date, content.rows + "Mã xác thực: $verification")
+        stampOverlay.stamp = Stamp(content.head, content.date, content.rows + Language.text(this@MainActivity, "Mã xác thực: {0}", (verification)))
         stampOverlay.logo = logoBmp?.takeIf { b("logoOn") }
         stampOverlay.appearance = StampSettings.appearance(sp)
         stampOverlay.watermark = if (b("wmOn")) s("wm") else ""
@@ -632,7 +631,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             val lm = getSystemService(LocationManager::class.java)
             for (pr in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER))
                 if (lm.isProviderEnabled(pr)) lm.requestLocationUpdates(pr, 2000L, 0f, this)
-        } else gpsTv.text = "Chưa cấp quyền vị trí"
+        } else gpsTv.text = Language.text(this@MainActivity, "Chưa cấp quyền vị trí")
         val sm = getSystemService(SensorManager::class.java)
         sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
     }
@@ -660,27 +659,27 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val now = System.currentTimeMillis()
         if ((!force && now - lastGeo < 60000) || !Geocoder.isPresent()) return
         lastGeo = now
-        thread { try { @Suppress("DEPRECATION") val a = Geocoder(this, Locale("vi", "VN")).getFromLocation(l.latitude, l.longitude, 1); autoAddr = a?.firstOrNull()?.getAddressLine(0) ?: "" } catch (e: Exception) {} }
+        thread { try { @Suppress("DEPRECATION") val a = Geocoder(this, Language.locale(this)).getFromLocation(l.latitude, l.longitude, 1); autoAddr = a?.firstOrNull()?.getAddressLine(0) ?: "" } catch (e: Exception) {} }
     }
     private fun locateDialog() {
         val l = loc
-        if (l == null) { toast("Chưa có toạ độ. Hãy bật GPS và chờ vài giây"); return }
+        if (l == null) { toast(Language.text(this@MainActivity, "Chưa có toạ độ. Hãy bật GPS và chờ vài giây")); return }
         geocode(l, true)
         val addr = if (s("addr").isNotEmpty()) s("addr") else autoAddr
         val coord = String.format(Locale.US, "%.6f, %.6f", l.latitude, l.longitude)
-        val msg = "Toạ độ: $coord\nSai số: ±${l.accuracy.toInt()} m" +
-            (if (l.hasAltitude()) "\nĐộ cao: ${l.altitude.toInt()} m" else "") +
-            (hdg?.let { "\nHướng: ${it.toInt()}° ${dirs[Math.round(it / 45f) % 8]}" } ?: "") +
-            "\nĐịa chỉ: " + (if (addr.isNotEmpty()) addr else "đang tra cứu… (cần có mạng, mở lại sau vài giây)")
-        AlertDialog.Builder(this).setTitle("📍 Vị trí hiện tại").setMessage(msg)
-            .setNeutralButton("Mở bản đồ") { _, _ ->
-                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$coord(Datvip Cam)"))) } catch (e: Exception) { toast("Không có app bản đồ") }
+        val msg = Language.text(this@MainActivity, "Toạ độ: {0}\nSai số: ±{1} m", (coord), (l.accuracy.toInt())) +
+            (if (l.hasAltitude()) Language.text(this@MainActivity, "\nĐộ cao: {0} m", (l.altitude.toInt())) else "") +
+            (hdg?.let { Language.text(this@MainActivity, "\nHướng: {0}° {1}", (it.toInt()), (Language.direction(this, it))) } ?: "") +
+            Language.text(this@MainActivity, "\nĐịa chỉ: ") + (if (addr.isNotEmpty()) addr else Language.text(this@MainActivity, "đang tra cứu… (cần có mạng, mở lại sau vài giây)"))
+        AlertDialog.Builder(this).setTitle(Language.text(this@MainActivity, "📍 Vị trí hiện tại")).setMessage(msg)
+            .setNeutralButton(Language.text(this@MainActivity, "Mở bản đồ")) { _, _ ->
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$coord(Datvip Cam)"))) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không có app bản đồ")) }
             }
-            .setNegativeButton("Sao chép") { _, _ ->
-                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("toa-do", coord)); toast("Đã sao chép toạ độ")
+            .setNegativeButton(Language.text(this@MainActivity, "Sao chép")) { _, _ ->
+                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("toa-do", coord)); toast(Language.text(this@MainActivity, "Đã sao chép toạ độ"))
             }
-            .setPositiveButton("Chia sẻ") { _, _ ->
-                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText(Date(), l)) }, "Chia sẻ vị trí"))
+            .setPositiveButton(Language.text(this@MainActivity, "Chia sẻ")) { _, _ ->
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText(Date(), l)) }, Language.text(this@MainActivity, "Chia sẻ vị trí")))
             }.show()
     }
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
@@ -710,13 +709,13 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private fun showAppInfo() {
         val info = packageManager.getPackageInfo(packageName, 0)
         val version = info.versionName ?: "1.0.1"
-        val detail = "Mã bản dựng: " + info.longVersionCode + " · " + packageName
+        val detail = Language.text(this@MainActivity, "Mã bản dựng: ") + info.longVersionCode + " · " + packageName
         val content = TextView(this).apply {
-            text = "Datvip Cam\nPhiên bản: $version\n$detail\n\napp chụp hình hiện trường thời gian thực\n\nPhát triển\nNguyễn Đắc Đạt\n\nEmail: chobanchotoi@gmail.com\n\n© 2026 Nguyễn Đắc Đạt"
+            text = Language.name(this@MainActivity) + "\n" + Language.text(this@MainActivity, "Phiên bản: {0}", version) + "\n$detail\n\n" + Language.text(this@MainActivity, "app chụp hình hiện trường thời gian thực") + "\n\n" + Language.text(this@MainActivity, "Phát triển") + "\nNguyễn Đắc Đạt\n\nEmail: chobanchotoi@gmail.com\n\n© 2026 Nguyễn Đắc Đạt"
             textSize = 17f; setPadding(dp(24), dp(16), dp(24), dp(16)); setTextIsSelectable(true)
         }
-        AlertDialog.Builder(this).setTitle("Thông tin").setView(ScrollView(this).apply { addView(content) })
-            .setPositiveButton("Đóng", null).show()
+        AlertDialog.Builder(this).setTitle(Language.text(this@MainActivity, "Thông tin")).setView(ScrollView(this).apply { addView(content) })
+            .setPositiveButton(Language.text(this@MainActivity, "Đóng"), null).show()
     }
     private fun directionsLink(lat: Double, lon: Double): String =
         "https://www.google.com/maps/dir/?api=1&destination=" + String.format(Locale.US, "%.6f,%.6f", lat, lon) + "&travelmode=driving"
@@ -754,8 +753,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             val o2 = BitmapFactory.Options().apply { inSampleSize = ss }
             val bm = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o2) } ?: throw Exception("decode")
             File(filesDir, "logo.png").outputStream().use { trimLogo(bm).compress(Bitmap.CompressFormat.PNG, 100, it) }
-            loadLogo(); refresh(); settingsScreen?.refreshPreview(); toast("Đã đặt logo")
-        } catch (e: Exception) { toast("Không đọc được ảnh logo") }
+            loadLogo(); refresh(); settingsScreen?.refreshPreview(); toast(Language.text(this@MainActivity, "Đã đặt logo"))
+        } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không đọc được ảnh logo")) }
     }
     private fun applyRotation() {
         val w = frame.width; val h = frame.height
@@ -769,7 +768,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         refresh()
     }
     private fun quickNote() {
-        if (videoBusy()) { toast("Hãy đợi lưu video"); return }
+        if (videoBusy()) { toast(Language.text(this@MainActivity, "Hãy đợi lưu video")); return }
         openStampSettings(true)
     }
 
@@ -783,20 +782,20 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val dialog = Dialog(this, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE); setPadding(0, dp(24), 0, 0) }
         val toolbar = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(8), 0) }
-        toolbar.addView(Button(this).apply { text = "‹"; contentDescription = "Đóng"; setOnClickListener { dialog.dismiss() } }, LinearLayout.LayoutParams(dp(52), dp(52)))
-        toolbar.addView(TextView(this).apply { text = "Xuất & Chia sẻ"; setTextColor(Color.BLACK); textSize = 18f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
-        val menu = Button(this).apply { text = "⋮"; contentDescription = "Chọn ảnh/video"; isEnabled = false }
+        toolbar.addView(Button(this).apply { text = "‹"; contentDescription = Language.text(this@MainActivity, "Đóng"); setOnClickListener { dialog.dismiss() } }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        toolbar.addView(TextView(this).apply { text = Language.text(this@MainActivity, "Xuất & Chia sẻ"); setTextColor(Color.BLACK); textSize = 18f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
+        val menu = Button(this).apply { text = "⋮"; contentDescription = Language.text(this@MainActivity, "Chọn ảnh/video"); isEnabled = false }
         toolbar.addView(menu, LinearLayout.LayoutParams(dp(52), dp(52))); root.addView(toolbar)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val status = TextView(this).apply { text = "Đang tải ảnh/video và vị trí…"; setTextColor(Color.DKGRAY); setPadding(dp(16), dp(16), dp(16), dp(16)) }
+        val status = TextView(this).apply { text = Language.text(this@MainActivity, "Đang tải ảnh/video và vị trí…"); setTextColor(Color.DKGRAY); setPadding(dp(16), dp(16), dp(16), dp(16)) }
         content.addView(status)
         root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1, 0, 1f))
         val footer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(18)); setBackgroundColor(0xFFF2F5FA.toInt()) }
         val summary = TextView(this).apply { textSize = 17f; setTextColor(Color.BLACK); typeface = Typeface.DEFAULT_BOLD }
         val hint = TextView(this).apply { textSize = 12f; setTextColor(Color.DKGRAY); setPadding(0, dp(6), 0, dp(8)) }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val share = Button(this).apply { text = "Chia sẻ"; setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_share, 0, 0); isEnabled = false }
-        val maps = Button(this).apply { text = "Liên kết Maps"; setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_mylocation, 0, 0); isEnabled = false }
+        val share = Button(this).apply { text = Language.text(this@MainActivity, "Chia sẻ"); setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_share, 0, 0); isEnabled = false }
+        val maps = Button(this).apply { text = Language.text(this@MainActivity, "Liên kết Maps"); setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_mylocation, 0, 0); isEnabled = false }
         actions.addView(share, LinearLayout.LayoutParams(0, -2, 1f)); actions.addView(maps, LinearLayout.LayoutParams(0, -2, 1f))
         footer.addView(summary); footer.addView(hint); footer.addView(actions); root.addView(footer)
         val items = ArrayList<Item>(); val checks = HashMap<Item, TextView>(); val dayButtons = ArrayList<Pair<List<Item>, Button>>()
@@ -804,12 +803,12 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         fun update() {
             val selected = items.filter { it.sel }
             val text = batchText(selected)
-            summary.text = "${selected.size} ảnh/video đã chọn"
+            summary.text = Language.text(this@MainActivity, "{0} ảnh/video đã chọn", (selected.size))
             hint.text = when {
-                preparing -> "Đang chuẩn bị tệp…"
-                selected.isEmpty() -> "Chọn ảnh/video để chia sẻ hoặc lấy link Maps"
-                text.isEmpty() -> "Tệp đã chọn không có vị trí GPS"
-                else -> "Kèm link Maps và chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video"
+                preparing -> Language.text(this@MainActivity, "Đang chuẩn bị tệp…")
+                selected.isEmpty() -> Language.text(this@MainActivity, "Chọn ảnh/video để chia sẻ hoặc lấy link Maps")
+                text.isEmpty() -> Language.text(this@MainActivity, "Tệp đã chọn không có vị trí GPS")
+                else -> Language.text(this@MainActivity, "Kèm link Maps và chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video")
             }
             share.isEnabled = selected.isNotEmpty() && !preparing; maps.isEnabled = text.isNotEmpty() && !preparing
             checks.forEach { (item, label) -> label.text = if (item.sel) "✓" else "○"; label.setBackgroundColor(if (item.sel) 0xFF0099F0.toInt() else 0x66000000) }
@@ -823,9 +822,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         }
         maps.setOnClickListener { showMapsLinks(batchText(items.filter { it.sel })) }
         menu.setOnClickListener {
-            AlertDialog.Builder(this).setItems(arrayOf(if (items.all { it.sel }) "Bỏ chọn tất cả" else "Chọn tất cả", "Chọn cùng vị trí")) { _, action ->
+            AlertDialog.Builder(this).setItems(arrayOf(if (items.all { it.sel }) Language.text(this@MainActivity, "Bỏ chọn tất cả") else Language.text(this@MainActivity, "Chọn tất cả"), Language.text(this@MainActivity, "Chọn cùng vị trí"))) { _, action ->
                 if (action == 0) { val all = items.all { it.sel }; items.forEach { it.sel = !all } }
-                else last?.let { ref -> items.forEach { if (it === ref || nearBy(ref, it)) it.sel = true } } ?: toast("Chọn một ảnh/video trước")
+                else last?.let { ref -> items.forEach { if (it === ref || nearBy(ref, it)) it.sel = true } } ?: toast(Language.text(this@MainActivity, "Chọn một ảnh/video trước"))
                 update()
             }.show()
         }
@@ -850,12 +849,12 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 runOnUiThread {
                     if (!dialog.isShowing || destroying) return@runOnUiThread
                     content.removeAllViews(); menu.isEnabled = items.isNotEmpty()
-                    if (items.isEmpty()) content.addView(TextView(this).apply { text = "Chưa có ảnh/video. Hãy chụp hoặc quay trước."; setTextColor(Color.DKGRAY); setPadding(dp(16), dp(24), dp(16), dp(24)) })
+                    if (items.isEmpty()) content.addView(TextView(this).apply { text = Language.text(this@MainActivity, "Chưa có ảnh/video. Hãy chụp hoặc quay trước."); setTextColor(Color.DKGRAY); setPadding(dp(16), dp(24), dp(16), dp(24)) })
                     val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                     val today = format.format(Date()); val yesterday = format.format(Date(System.currentTimeMillis() - 86400000))
                     val thumbnails = HashMap<Item, ImageView>()
                     items.groupBy { format.format(Date(it.time)) }.forEach { (date, group) ->
-                        val label = when (date) { today -> "Hôm nay"; yesterday -> "Hôm qua"; else -> SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date(group.first().time)) }
+                        val label = when (date) { today -> Language.text(this@MainActivity, "Hôm nay"); yesterday -> Language.text(this@MainActivity, "Hôm qua"); else -> SimpleDateFormat("dd/MM/yyyy", Locale.US).format(Date(group.first().time)) }
                         val day = Button(this).apply { text = "$label (${group.size})"; gravity = Gravity.START or Gravity.CENTER_VERTICAL; setTextColor(Color.BLACK)
                             setOnClickListener { val all = group.all { it.sel }; group.forEach { it.sel = !all }; update() } }
                         dayButtons.add(group to day); content.addView(day, LinearLayout.LayoutParams(-1, -2))
@@ -868,11 +867,11 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                             val check = TextView(this).apply { textSize = 20f; gravity = Gravity.CENTER; setTextColor(Color.WHITE) }
                             checks[item] = check; cell.addView(check, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.END or Gravity.TOP).apply { setMargins(0, dp(5), dp(5), 0) })
                             if (item.video) cell.addView(TextView(this).apply { text = "▶"; textSize = 24f; setTextColor(Color.WHITE); setShadowLayer(3f, 0f, 1f, Color.BLACK) }, FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.BOTTOM).apply { setMargins(dp(6), 0, 0, dp(6)) })
-                            cell.contentDescription = if (item.video) "Chọn video" else "Chọn ảnh"
+                            cell.contentDescription = if (item.video) Language.text(this@MainActivity, "Chọn video") else Language.text(this@MainActivity, "Chọn ảnh")
                             cell.setOnClickListener { item.sel = !item.sel; last = item; update() }
                             cell.setOnLongClickListener {
                                 try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri, if (item.video) "video/mp4" else "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
-                                catch (_: Exception) { toast("Không có ứng dụng mở tệp này") }; true
+                                catch (_: Exception) { toast(Language.text(this@MainActivity, "Không có ứng dụng mở tệp này")) }; true
                             }
                             grid.addView(cell, GridLayout.LayoutParams().apply { width = size; height = size })
                         }
@@ -887,18 +886,18 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                     }
                 }
             } catch (error: Exception) {
-                runOnUiThread { if (dialog.isShowing) status.text = "Không đọc được thư viện: ${error.message}" }
+                runOnUiThread { if (dialog.isShowing) status.text = Language.text(this@MainActivity, "Không đọc được thư viện: {0}", (error.message)) }
             }
         }
     }
 
     private fun showMapsLinks(text: String) {
-        if (text.isBlank()) { toast("Tệp đã chọn không có vị trí GPS"); return }
+        if (text.isBlank()) { toast(Language.text(this@MainActivity, "Tệp đã chọn không có vị trí GPS")); return }
         val linkView = TextView(this).apply { this.text = text; setTextIsSelectable(true); setPadding(dp(20), dp(16), dp(20), dp(16)) }
-        AlertDialog.Builder(this).setTitle("Liên kết Maps").setView(ScrollView(this).apply { addView(linkView) })
-            .setPositiveButton("Sao chép") { _, _ -> getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Google Maps", text)); toast("Đã chép link Maps") }
-            .setNeutralButton("Chia sẻ link") { _, _ -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, "Chia sẻ link Maps")) }
-            .setNegativeButton("Đóng", null).show()
+        AlertDialog.Builder(this).setTitle(Language.text(this@MainActivity, "Liên kết Maps")).setView(ScrollView(this).apply { addView(linkView) })
+            .setPositiveButton(Language.text(this@MainActivity, "Sao chép")) { _, _ -> getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Google Maps", text)); toast(Language.text(this@MainActivity, "Đã chép link Maps")) }
+            .setNeutralButton(Language.text(this@MainActivity, "Chia sẻ link")) { _, _ -> startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, Language.text(this@MainActivity, "Chia sẻ link Maps"))) }
+            .setNegativeButton(Language.text(this@MainActivity, "Đóng"), null).show()
     }
 
     private fun batchText(sel: List<Item>): String {
@@ -913,19 +912,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         }.distinct().joinToString("\n")
     }
     private fun shareBatch(selected: List<Item>, finished: () -> Unit = {}) {
-        if (selected.isEmpty()) { finished(); toast("Hãy chọn ảnh/video trước"); return }
+        if (selected.isEmpty()) { finished(); toast(Language.text(this@MainActivity, "Hãy chọn ảnh/video trước")); return }
         val selection = selected.toList()
         val text = batchText(selection)
         thread {
             try {
                 val directory = File(cacheDir, "share/${UUID.randomUUID()}")
-                check(directory.mkdirs()) { "Không tạo được thư mục chia sẻ" }
+                check(directory.mkdirs()) { Language.text(this@MainActivity, "Không tạo được thư mục chia sẻ") }
                 val uris = ArrayList<Uri>()
                 selection.forEachIndexed { index, item ->
                     val file = File(directory, "DatvipCam_${index + 1}_${item.time}." + if (item.video) "mp4" else "jpg")
-                    val stream = contentResolver.openInputStream(item.uri) ?: error("Không mở được một tệp đã chọn")
+                    val stream = contentResolver.openInputStream(item.uri) ?: error(Language.text(this@MainActivity, "Không mở được một tệp đã chọn"))
                     stream.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
-                    check(file.length() > 0) { "Một tệp đã chọn không có dữ liệu" }
+                    check(file.length() > 0) { Language.text(this@MainActivity, "Một tệp đã chọn không có dữ liệu") }
                     uris.add(FileProvider.getUriForFile(this, "$packageName.fileprovider", file))
                 }
                 val intent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
@@ -939,10 +938,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                     finished()
                     if (destroying) return@runOnUiThread
                     getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Google Maps", text))
-                    try { startActivity(Intent.createChooser(intent, "Chia sẻ ảnh/video")) }
-                    catch (error: Exception) { toast("Không mở được chia sẻ: ${error.message}") }
+                    try { startActivity(Intent.createChooser(intent, Language.text(this@MainActivity, "Chia sẻ ảnh/video"))) }
+                    catch (error: Exception) { toast(Language.text(this@MainActivity, "Không mở được chia sẻ: {0}", (error.message))) }
                 }
-            } catch (error: Exception) { runOnUiThread { finished(); toast("Không chuẩn bị được tệp: ${error.message}") } }
+            } catch (error: Exception) { runOnUiThread { finished(); toast(Language.text(this@MainActivity, "Không chuẩn bị được tệp: {0}", (error.message))) } }
         }
     }
 
@@ -950,7 +949,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val u = lastUri
         val i = if (u != null) Intent(Intent.ACTION_VIEW).setDataAndType(u, lastMime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         else Intent(Intent.ACTION_VIEW, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        try { startActivity(i) } catch (e: Exception) { toast("Không mở được thư viện") }
+        try { startActivity(i) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không mở được thư viện")) }
     }
     private fun toast(t: String) = runOnUiThread { Toast.makeText(this, t, Toast.LENGTH_SHORT).show() }
 }

@@ -66,7 +66,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     @Published var autoAddr = ""
     @Published var devOrient: UIDeviceOrientation = .portrait
 
-    private let dirs = ["B", "ĐB", "Đ", "ĐN", "N", "TN", "T", "TB"]
     func str(_ k: String) -> String { UserDefaults.standard.string(forKey: k) ?? "" }
     func flag(_ k: String) -> Bool { UserDefaults.standard.object(forKey: k) as? Bool ?? true }
     static var logoURL: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("logo.png") }
@@ -224,7 +223,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         guard let vi = videoInput, vi.isReadyForMoreMediaData, let ad = adaptor, let pool = ad.pixelBufferPool else { return }
         if overlayCI == nil || Date().timeIntervalSince(lastOverlay) >= 1 {
             var L = lines(Date(), loc)
-            L.rows.append("Mã xác thực: " + recCode)
+            L.rows.append(AppLanguage.text("Mã xác thực: ") + recCode)
             overlayCI = CIImage(image: overlayImage(outSize, L)); lastOverlay = Date()
         }
         var out: CVPixelBuffer?
@@ -262,7 +261,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         DispatchQueue.global(qos: .userInitiated).async {
             let base = img.normalized().cropped(to: aspect)
             var L = self.lines(d, l)
-            L.rows.append("Mã xác thực: " + self.code(d, l))
+            L.rows.append(AppLanguage.text("Mã xác thực: ") + self.code(d, l))
             let out = self.stamp(base, L)
             if let jpg = self.jpeg(out, l) { self.save(jpg, d, l) }
         }
@@ -309,13 +308,13 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     func lines(_ d: Date, _ l: CLLocation?) -> StampLines {
         var head: String?, date: String?
         if flag("time") {
-            let f = DateFormatter(); f.locale = Locale(identifier: "vi_VN")
+            let f = DateFormatter(); f.locale = AppLanguage.locale
             f.dateFormat = "HH:mm:ss"; head = f.string(from: d)
             f.dateFormat = "EEEE, dd/MM/yyyy"
             let off = TimeZone.current.secondsFromGMT(for: d) / 3600
             date = f.string(from: d).capitalized + " (GMT\(off >= 0 ? "+" : "")\(off))"
         }
-        let project: String? = str("proj").isEmpty ? nil : "Nhiệm vụ: " + str("proj")
+        let project: String? = str("proj").isEmpty ? nil : AppLanguage.text("Nhiệm vụ: ") + str("proj")
         let addr = str("addr").isEmpty ? autoAddr : str("addr")
         let address: String? = addr.isEmpty ? nil : addr
         var custom: [String] = []
@@ -326,18 +325,18 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         var rows: [String] = []
         if flag("gps") {
             if let l = l {
-                rows.append("📍 " + String(format: "Vĩ độ %.6f, Kinh độ %.6f", l.coordinate.latitude, l.coordinate.longitude) + " (±\(Int(l.horizontalAccuracy))m)")
-            } else { rows.append("📍 Chưa có toạ độ GPS") }
+                rows.append("📍 " + String(format: AppLanguage.text("Vĩ độ %.6f, Kinh độ %.6f"), locale: Locale(identifier: "en_US_POSIX"), l.coordinate.latitude, l.coordinate.longitude) + " (±\(Int(l.horizontalAccuracy))m)")
+            } else { rows.append(AppLanguage.text("📍 Chưa có toạ độ GPS")) }
         }
-        if flag("alt"), let l = l, l.verticalAccuracy >= 0 { rows.append("Độ cao \(Int(l.altitude)) m") }
-        if flag("hdg"), let h = heading { rows.append("Hướng \(Int(h))° \(dirs[Int((h / 45).rounded()) % 8])") }
-        if !str("note").isEmpty { rows.append("Ghi chú: " + str("note")) }
+        if flag("alt"), let l = l, l.verticalAccuracy >= 0 { rows.append(AppLanguage.text("Độ cao {0} m", String(describing: (Int(l.altitude))))) }
+        if flag("hdg"), let h = heading { rows.append(AppLanguage.text("Hướng {0}° {1}", String(describing: (Int(h))), AppLanguage.direction(h))) }
+        if !str("note").isEmpty { rows.append(AppLanguage.text("Ghi chú: ") + str("note")) }
         return StampLines(head: head, date: date, project: project, address: address, custom: custom, rows: rows)
     }
     func previewLines(_ d: Date) -> StampLines {
         var content = lines(d, loc)
         // Include the verification row when measuring preview, just as exports do.
-        content.rows.append("Mã xác thực: " + (isRecording && !previewVerificationCode.isEmpty ? previewVerificationCode : code(d, loc)))
+        content.rows.append(AppLanguage.text("Mã xác thực: ") + (isRecording && !previewVerificationCode.isEmpty ? previewVerificationCode : code(d, loc)))
         return content
     }
     private func code(_ d: Date, _ l: CLLocation?) -> String {
@@ -446,7 +445,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         loc = l
         if Date().timeIntervalSince(lastGeo) > 60 {
             lastGeo = Date()
-            geocoder.reverseGeocodeLocation(l, preferredLocale: Locale(identifier: "vi_VN")) { pm, _ in
+            geocoder.reverseGeocodeLocation(l, preferredLocale: AppLanguage.locale) { pm, _ in
                 guard let p = pm?.first else { return }
                 let a = [p.subThoroughfare, p.thoroughfare, p.subLocality, p.locality, p.administrativeArea].compactMap { $0 }.joined(separator: ", ")
                 DispatchQueue.main.async { self.autoAddr = a }

@@ -17,9 +17,9 @@ private struct ExportDay: Identifiable {
     let records: [PhotoRec]
     var id: Date { date }
     var title: String {
-        if Calendar.current.isDateInToday(date) { return "Hôm nay" }
-        if Calendar.current.isDateInYesterday(date) { return "Hôm qua" }
-        let format = DateFormatter(); format.locale = Locale(identifier: "vi_VN"); format.dateFormat = "dd/MM/yyyy"
+        if Calendar.current.isDateInToday(date) { return AppLanguage.text("Hôm nay") }
+        if Calendar.current.isDateInYesterday(date) { return AppLanguage.text("Hôm qua") }
+        let format = DateFormatter(); format.locale = AppLanguage.locale; format.dateFormat = "dd/MM/yyyy"
         return format.string(from: date)
     }
 }
@@ -46,7 +46,7 @@ struct GalleryView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if records.isEmpty { Text("Chưa có ảnh/video. Hãy chụp hoặc quay trước.").foregroundColor(.secondary).padding(40) }
+                if records.isEmpty { Text(AppLanguage.text("Chưa có ảnh/video. Hãy chụp hoặc quay trước.")).foregroundColor(.secondary).padding(40) }
                 ForEach(days) { day in
                     VStack(spacing: 8) {
                         Button {
@@ -73,22 +73,22 @@ struct GalleryView: View {
                                     }
                                     .contentShape(Rectangle())
                                     .onTapGesture { if selection.contains(record.id) { selection.remove(record.id) } else { selection.insert(record.id) }; last = record }
-                                    .accessibilityLabel(record.video == true ? "Video" : "Ảnh")
+                                    .accessibilityLabel(record.video == true ? "Video" : AppLanguage.text("Ảnh"))
                                     .accessibilityAddTraits(selection.contains(record.id) ? [.isButton, .isSelected] : [.isButton])
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("Xuất & Chia sẻ").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(AppLanguage.text("Xuất & Chia sẻ")).navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Đóng") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(AppLanguage.text("Đóng")) { dismiss() } }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button(selection.count == records.count ? "Bỏ chọn tất cả" : "Chọn tất cả") {
+                        Button(selection.count == records.count ? AppLanguage.text("Bỏ chọn tất cả") : AppLanguage.text("Chọn tất cả")) {
                             selection = selection.count == records.count ? [] : Set(records.map { $0.id })
                         }
-                        Button("Chọn cùng vị trí") {
+                        Button(AppLanguage.text("Chọn cùng vị trí")) {
                             guard let ref = last else { return }
                             records.filter { $0.id == ref.id || CameraModel.near(ref, $0) }.forEach { selection.insert($0.id) }
                         }.disabled(last == nil)
@@ -100,23 +100,23 @@ struct GalleryView: View {
         }
         .sheet(item: $request) { payload in ShareSheet(items: payload.items) }
         .sheet(isPresented: $showLinks) { linksPanel }
-        .alert("Xuất & Chia sẻ", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
-            Button("Đóng", role: .cancel) { message = nil }
+        .alert(AppLanguage.text("Xuất & Chia sẻ"), isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+            Button(AppLanguage.text("Đóng"), role: .cancel) { message = nil }
         } message: { Text(message ?? "") }
     }
 
     private var exportActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("\(chosen.count) ảnh/video đã chọn").font(.headline)
+            Text(AppLanguage.text("{0} ảnh/video đã chọn", String(describing: (chosen.count)))).font(.headline)
             if !selection.isEmpty {
-                Text(links.isEmpty ? "Tệp đã chọn không có vị trí GPS." : "Link Maps sẽ kèm theo và được chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video.")
+                Text(links.isEmpty ? AppLanguage.text("Tệp đã chọn không có vị trí GPS.") : AppLanguage.text("Link Maps sẽ kèm theo và được chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video."))
                     .font(.caption).foregroundColor(.secondary)
             }
-            if preparing { ProgressView("Đang chuẩn bị tệp…") }
+            if preparing { ProgressView(AppLanguage.text("Đang chuẩn bị tệp…")) }
             HStack(spacing: 12) {
-                Button { prepareShare() } label: { Label("Chia sẻ", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
+                Button { prepareShare() } label: { Label(AppLanguage.text("Chia sẻ"), systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).tint(accent).disabled(selection.isEmpty || preparing)
-                Button { showLinks = true } label: { Label("Liên kết Maps", systemImage: "link").frame(maxWidth: .infinity) }
+                Button { showLinks = true } label: { Label(AppLanguage.text("Liên kết Maps"), systemImage: "link").frame(maxWidth: .infinity) }
                     .buttonStyle(.bordered).disabled(links.isEmpty || preparing)
             }
         }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.bar)
@@ -127,11 +127,11 @@ struct GalleryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(links).textSelection(.enabled).font(.callout)
-                    Button("Sao chép link Maps") { UIPasteboard.general.string = links }.buttonStyle(.borderedProminent)
-                    ShareLink(item: links) { Label("Chia sẻ link Maps", systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
-                    Text("Nếu ứng dụng nhận chỉ gửi ảnh/video, dán link này vào cuộc trò chuyện sau khi gửi.").font(.caption).foregroundColor(.secondary)
+                    Button(AppLanguage.text("Sao chép link Maps")) { UIPasteboard.general.string = links }.buttonStyle(.borderedProminent)
+                    ShareLink(item: links) { Label(AppLanguage.text("Chia sẻ link Maps"), systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
+                    Text(AppLanguage.text("Nếu ứng dụng nhận chỉ gửi ảnh/video, dán link này vào cuộc trò chuyện sau khi gửi.")).font(.caption).foregroundColor(.secondary)
                 }.padding()
-            }.navigationTitle("Liên kết Maps").navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(AppLanguage.text("Liên kết Maps")).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { showLinks = false } } }
         }.presentationDetents([.medium, .large])
     }
@@ -152,7 +152,7 @@ struct GalleryView: View {
                 }
             }.value
             preparing = false
-            guard valid else { message = "Một tệp đã chọn không còn đọc được. Hãy bỏ chọn tệp đó rồi thử lại."; return }
+            guard valid else { message = AppLanguage.text("Một tệp đã chọn không còn đọc được. Hãy bỏ chọn tệp đó rồi thử lại."); return }
             UIPasteboard.general.string = linkText
             request = ShareRequest(files: files, links: linkText)
         }

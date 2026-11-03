@@ -19,9 +19,9 @@ object StampContent {
     fun normalizedLabel(value: String) = Normalizer.normalize(value, Normalizer.Form.NFD)
         .replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT).replace('đ', 'd')
         .trim().replace(Regex("\\s+"), " ")
-    fun isPlace(value: String) = ':' in value && normalizedLabel(value.substringBefore(':')) == "dia diem"
+    fun isPlace(value: String) = ':' in value && normalizedLabel(value.substringBefore(':')) in listOf("dia diem", "location", "place")
     fun entries(stamp: Stamp): List<StampEntry> {
-        val project = stamp.rows.filter { it.startsWith("Nhiệm vụ:") }
+        val project = stamp.rows.filter { (it.startsWith("Nhiệm vụ:") || it.startsWith("Task:")) }
         val custom = stamp.rows.filter { it.startsWith('\u200B') }.map { it.substring(1) }
         val addresses = stamp.rows.filter { it.startsWith('\u200C') }.map { it.substring(1) }
         return project.map { StampEntry(it, StampRole.PROJECT) } +
@@ -29,7 +29,7 @@ object StampContent {
             listOfNotNull(stamp.head?.let { StampEntry(it, StampRole.TIME) }, stamp.date?.let { StampEntry(it, StampRole.DATE) }) +
             addresses.map { StampEntry(it, StampRole.ADDRESS) } +
             custom.filterNot(::isPlace).map { StampEntry(it, StampRole.CUSTOM) } +
-            stamp.rows.filterNot { it.startsWith("Nhiệm vụ:") || it.startsWith('\u200B') || it.startsWith('\u200C') }
+            stamp.rows.filterNot { (it.startsWith("Nhiệm vụ:") || it.startsWith("Task:")) || it.startsWith('\u200B') || it.startsWith('\u200C') }
                 .map { StampEntry(it, StampRole.DETAIL) }
     }
 }
@@ -59,11 +59,11 @@ object AndroidStampRenderer {
                     StampRole.DATE -> if (corner) 2.6f else 3.4f
                     StampRole.PLACE, StampRole.ADDRESS -> if (corner) 3f else 3.4f
                     StampRole.CUSTOM -> if (corner) 2.9f else 3.3f
-                    StampRole.DETAIL -> if (entry.text.startsWith("Mã xác thực")) 2.6f else if (corner) 2.8f else 3.2f
+                    StampRole.DETAIL -> if ((entry.text.startsWith("Mã xác thực") || entry.text.startsWith("Verification code"))) 2.6f else if (corner) 2.8f else 3.2f
                 }
                 textSize = (points * unit * scale).coerceAtLeast(1f)
                 typeface = if (entry.role in listOf(StampRole.PROJECT, StampRole.PLACE, StampRole.TIME, StampRole.ADDRESS)) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                color = when (entry.role) { StampRole.PROJECT -> orange; StampRole.TIME -> yellow; else -> if (entry.text.startsWith("Mã xác thực")) Color.LTGRAY else Color.WHITE }
+                color = when (entry.role) { StampRole.PROJECT -> orange; StampRole.TIME -> yellow; else -> if ((entry.text.startsWith("Mã xác thực") || entry.text.startsWith("Verification code"))) Color.LTGRAY else Color.WHITE }
             }
             fun layout(entry: StampEntry, width: Float) = StaticLayout.Builder.obtain(entry.text, 0, entry.text.length,
                 textPaint(entry), width.toInt().coerceAtLeast(1)).setIncludePad(false)

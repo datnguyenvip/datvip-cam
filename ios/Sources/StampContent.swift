@@ -26,7 +26,7 @@ struct StampLines {
 
     static func isPlace(_ field: String) -> Bool {
         guard let colon = field.firstIndex(of: ":") else { return false }
-        return normalizedLabel(String(field[..<colon])) == "dia diem"
+        return ["dia diem", "location", "place"].contains(normalizedLabel(String(field[..<colon])))
     }
 
     /// All render paths consume this order; values are never exchanged with GPS.

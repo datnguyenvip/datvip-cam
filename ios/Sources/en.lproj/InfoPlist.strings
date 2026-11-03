@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "Field Camera";
+"NSCameraUsageDescription" = "Field Camera uses the camera to take photos and record videos.";
+"NSLocationWhenInUseUsageDescription" = "Field Camera uses your location for GPS stamps and address lookup.";
+"NSMicrophoneUsageDescription" = "Field Camera uses the microphone to record video with sound.";
+"NSPhotoLibraryAddUsageDescription" = "Field Camera saves photos and videos to your library.";
