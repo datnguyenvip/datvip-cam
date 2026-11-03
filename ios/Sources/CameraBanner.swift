@@ -24,6 +24,9 @@ final class CameraAdConsent: ObservableObject {
         allowed = ConsentInformation.shared.canRequestAds
         if allowed && !initialized {
             initialized = true
+            MobileAds.shared.requestConfiguration.maxAdContentRating = GADMaxAdContentRating.general
+            MobileAds.shared.requestConfiguration.publisherPrivacyPersonalizationState = .disabled
+            MobileAds.shared.requestConfiguration.coarseLocationCollectionEnabled = false
             MobileAds.shared.start()
         }
     }

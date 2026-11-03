@@ -26,6 +26,10 @@ class CameraBanner(private val activity: Activity, private val slot: FrameLayout
             return
         }
         if (!consentReady || !consent.canRequestAds() || ad != null) return
+        MobileAds.setRequestConfiguration(MobileAds.getRequestConfiguration().toBuilder()
+            .setMaxAdContentRating(RequestConfiguration.MAX_AD_CONTENT_RATING_G)
+            .setPublisherPrivacyPersonalizationState(RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED)
+            .build())
         MobileAds.initialize(activity) { activity.runOnUiThread {
             if (closed || purchase.owned || ad != null || !consent.canRequestAds()) return@runOnUiThread
             ad = AdView(activity).also { banner ->
