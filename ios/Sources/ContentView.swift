@@ -214,6 +214,9 @@ struct SettingsView: View {
                 }
                 AdFreeSettingsSection()
                 AdPrivacySection()
+                Section {
+                    Link(AppLanguage.text("Chính sách quyền riêng tư"), destination: URL(string: "https://datnguyenvip.github.io/datvip-cam/privacy-1.1-\(AppLanguage.locale.languageCode == "vi" ? "vi" : "en").html")!)
+                }
                 Section(AppLanguage.text("Nội dung dấu")) {
                     KeyField("proj", AppLanguage.text("Tên nhiệm vụ / công việc"))
                     KeyField("addr", AppLanguage.text("Địa chỉ (để trống = tự lấy theo GPS)"))

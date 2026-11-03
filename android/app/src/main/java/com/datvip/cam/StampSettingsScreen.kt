@@ -255,6 +255,10 @@ class StampSettingsScreen(
             val app = section(Language.text(context, "Ứng dụng"))
             app.addView(button(Language.text(context, "Xóa quảng cáo"), purchases))
             app.addView(button(Language.text(context, "Tùy chọn quyền riêng tư"), privacyOptions))
+            app.addView(button(Language.text(context, "Chính sách quyền riêng tư")) {
+                val lang = if (Language.locale(context).language == "vi") "vi" else "en"
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://datnguyenvip.github.io/datvip-cam/privacy-1.1-$lang.html")))
+            })
             app.addView(button(Language.text(context, "Thông tin và phiên bản"), about))
             app.addView(text(Language.text(context, "Vị trí được dùng để đóng dấu và tra cứu địa chỉ qua dịch vụ Android. Ẩn dòng GPS không tắt định vị. Bạn có thể thu hồi quyền vị trí trong cài đặt điện thoại.")))
             app.addView(button(Language.text(context, "Chính sách quyền riêng tư")) {

@@ -87,7 +87,7 @@ struct AdPrivacySection: View {
     var body: some View {
         if consent.privacyRequired {
             Section {
-                Button(AppLanguage.text("Tùy chọn quyền riêng tư quảng cáo")) {
+                Button(AppLanguage.text("Tùy chọn quyền riêng tư")) {
                     Task { await consent.privacyOptions() }
                 }
             }
