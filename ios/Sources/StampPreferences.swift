@@ -448,11 +448,7 @@ struct StampBackgroundSection: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            let sample = StampLines(head: "10:51:00", date: AppLanguage.text("Thứ Hai, 02/11/2026 (GMT+7)"),
-                                    project: AppLanguage.text("Nhiệm vụ: Nhật ký công việc"),
-                                    address: "175 Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh",
-                                    custom: [AppLanguage.text("Địa điểm: Chốt giao thông"), "ANCS: DatVip – tổ 3"],
-                                    rows: [AppLanguage.text("Mã xác thực: 12345678")])
+            let sample = model.previewLines(Date())
             Image(uiImage: model.overlayImage(CGSize(width: 900, height: 1200), sample))
                 .resizable().scaledToFit()
                 .background(LinearGradient(colors: [.gray, .blue.opacity(0.35), .black], startPoint: .topLeading, endPoint: .bottomTrailing))

@@ -10,12 +10,12 @@ final class StoreScreenshotsTests: XCTestCase {
             return false
         }
         let app = XCUIApplication()
+        app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
         app.launchArguments = ["-interfaceLanguage", language,
             "-addr", language == "vi" ? "Địa điểm mẫu" : "Sample location",
             "-proj", language == "vi" ? "Khảo sát công trình" : "Site inspection",
             "-f1l", language == "vi" ? "Khu vực" : "Area",
-            "-f1v", language == "vi" ? "Lối vào phía Bắc" : "North entrance",
-            "-logoOn", "NO"]
+            "-f1v", language == "vi" ? "Lối vào phía Bắc" : "North entrance"]
         app.launch()
         let settings = app.buttons["gearshape"]
         XCTAssertTrue(settings.waitForExistence(timeout: 30))
