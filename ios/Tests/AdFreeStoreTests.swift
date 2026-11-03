@@ -2,6 +2,7 @@ import XCTest
 import StoreKitTest
 
 @MainActor
+@available(iOS 17.0, *)
 final class AdFreeStoreTests: XCTestCase {
     func testVerifiedNonConsumableSurvivesRecreationAndRefundRevokesIt() async throws {
         let session = try SKTestSession(configurationFileNamed: "RemoveAds")
@@ -17,7 +18,7 @@ final class AdFreeStoreTests: XCTestCase {
         let reopened = AdFreeStore()
         await reopened.refresh()
         XCTAssertTrue(reopened.owned)
-        try session.refundTransaction(identifier: transaction.identifier)
+        try session.refundTransaction(identifier: Int(transaction.id))
         await reopened.refresh()
         XCTAssertFalse(reopened.owned)
     }
