@@ -415,6 +415,7 @@ struct StampBackgroundSection: View {
     var body: some View {
         Section(AppLanguage.text("Kích thước và nền khung dấu")) {
             Text(AppLanguage.text("Cỡ dấu: {0}%", String(describing: (Int(min(1.2, max(0.5, displaySize)) * 100)))))
+                .accessibilityIdentifier("stamp-size-label")
             HStack {
                 Button(AppLanguage.text("Rất nhỏ")) { displaySize = 0.5 }
                 Spacer()

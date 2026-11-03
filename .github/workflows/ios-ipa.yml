@@ -75,7 +75,8 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for devices in d["devices"].values() for x in devices if "iPhone" in x["name"]))')
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); a=[x for devices in d["devices"].values() for x in devices if "iPhone" in x["name"]]; print(next((x["udid"] for x in a if "Pro Max" in x["name"]),a[0]["udid"]))')
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           xcodebuild \
             -project DatvipCam.xcodeproj \
             -scheme StampTests \
@@ -86,12 +87,23 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test | tee StampTests.log
 
+      - name: Capture actual Vietnamese and English settings on iPhone Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project DatvipCam.xcodeproj -scheme StoreScreenshots -configuration Debug \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" -parallel-testing-enabled NO \
+            -resultBundlePath StoreScreenshots.xcresult CODE_SIGNING_ALLOWED=NO test | tee StoreScreenshots.log
+
       - name: Export layout images
         if: always()
         working-directory: ios
         run: |
           if [ -d StampTests.xcresult ]; then
             xcrun xcresulttool export attachments --path StampTests.xcresult --output-path StampTestImages
+          fi
+          if [ -d StoreScreenshots.xcresult ]; then
+            xcrun xcresulttool export attachments --path StoreScreenshots.xcresult --output-path StoreScreenImages
           fi
 
       - name: Upload stamp test evidence
@@ -103,6 +115,8 @@ jobs:
             ios/StampTests.xcresult
             ios/StampTests.log
             ios/StampTestImages
+            ios/StoreScreenshots.log
+            ios/StoreScreenImages
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4

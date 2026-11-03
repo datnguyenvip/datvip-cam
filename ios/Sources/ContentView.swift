@@ -117,7 +117,7 @@ struct ContentView: View {
         Button(action: action) {
             Image(systemName: sys).font(.system(size: 20)).foregroundColor(.white).frame(width: 48, height: 48)
                 .background(Color(red: 0.106, green: 0.169, blue: 0.212)).clipShape(Circle())
-        }.frame(maxWidth: .infinity)
+        }.frame(maxWidth: .infinity).accessibilityIdentifier(sys)
     }
     private func mini(_ sys: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {

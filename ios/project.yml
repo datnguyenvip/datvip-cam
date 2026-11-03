@@ -34,6 +34,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Field Camera
+        ITSAppUsesNonExemptEncryption: false
         GADApplicationIdentifier: ca-app-pub-7989207995898060~8435659601
         GADDelayAppMeasurementInit: true
         CFBundleDevelopmentRegion: en
@@ -54,7 +55,6 @@ targets:
           - ContentView.swift
           - DatvipCamApp.swift
           - ExportGallery.swift
-          - AdFreeStore.swift
           - CameraBanner.swift
       - Tests
     settings:
@@ -62,7 +62,26 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.stamptests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
+  StoreScreenshots:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: DatvipCam
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.screenshots
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DatvipCam
+        SWIFT_VERSION: "5.0"
 schemes:
+  StoreScreenshots:
+    build:
+      targets:
+        DatvipCam: all
+        StoreScreenshots: [test]
+    test:
+      targets: [StoreScreenshots]
   StampTests:
     build:
       targets:
