@@ -90,7 +90,7 @@ struct ContentView: View {
             .padding(.vertical, 14).background(Color(red: 0.04, green: 0.08, blue: 0.10))
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
         .sheet(isPresented: $showNote) { NoteView() }
         .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
     }
@@ -186,6 +186,7 @@ struct Thumb: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var language: LanguageSelection
+    var languageLocked = false
     @Environment(\.dismiss) private var dismiss
     @AppStorage("time") private var time = true
     @AppStorage("gps") private var gps = true
@@ -208,7 +209,9 @@ struct SettingsView: View {
                         Text("Tiếng Việt").tag("vi")
                         Text("English").tag("en")
                     }
+                    .disabled(languageLocked)
                 }
+                AdFreeSettingsSection()
                 Section(AppLanguage.text("Nội dung dấu")) {
                     KeyField("proj", AppLanguage.text("Tên nhiệm vụ / công việc"))
                     KeyField("addr", AppLanguage.text("Địa chỉ (để trống = tự lấy theo GPS)"))

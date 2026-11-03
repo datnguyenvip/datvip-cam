@@ -40,6 +40,8 @@ targets:
           - ContentView.swift
           - DatvipCamApp.swift
           - ExportGallery.swift
+          - AdFreeStore.swift
+          - CameraBanner.swift
       - Tests
     settings:
       base:
