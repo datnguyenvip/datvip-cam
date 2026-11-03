@@ -224,5 +224,16 @@
   "Vị trí": "Location",
   "Tọa độ": "Coordinates",
   "Thời gian": "Date & Time",
-  "Địa chỉ": "Address"
+  "Địa chỉ": "Address",
+  "Cửa hàng chưa sẵn sàng": "The store is not ready",
+  "Đã khôi phục mua hàng": "Purchase restored",
+  "Không tìm thấy giao dịch bỏ quảng cáo": "No ad removal purchase found",
+  "Sản phẩm chưa được cửa hàng cung cấp": "This product is not available from the store yet",
+  "Giao dịch đang chờ thanh toán": "Payment is pending",
+  "Cửa hàng chưa xác nhận giao dịch. Hãy khôi phục mua hàng khi có mạng.": "The store has not acknowledged the purchase. Restore your purchase when online.",
+  "Tùy chọn quyền riêng tư": "Privacy Options",
+  "Quảng cáo đã được xóa": "Ads have been removed",
+  "Mua một lần: {0}": "One-time purchase: {0}",
+  "Mua hàng không thành công": "Purchase failed",
+  "Mua hàng đang chờ xác nhận": "Purchase is awaiting approval"
 }

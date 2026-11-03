@@ -32,6 +32,8 @@ class StampSettingsScreen(
     private val pickLogo: () -> Unit = {},
     private val resetLogo: () -> Unit = {},
     private val about: () -> Unit = {},
+    private val purchases: () -> Unit = {},
+    private val privacyOptions: () -> Unit = {},
     private val quick: Boolean = false
 ) {
     private val orange = Color.rgb(255, 164, 92)
@@ -158,8 +160,10 @@ class StampSettingsScreen(
         val anchors = linkedMapOf<String, View>()
         if (!quick) {
             val shortcuts = LinearLayout(context)
-            for ((label, target) in listOf(Language.text(context, "Khung") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), Language.text(context, "Nền") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), "Logo" to "Logo", Language.text(context, "Mẫu") to Language.text(context, "Mẫu nhiệm vụ"))) {
-                shortcuts.addView(button(label) { anchors[target]?.let { scroll.smoothScrollTo(0, it.top) } }.apply { tag = "shortcut-$label" }, LinearLayout.LayoutParams(0, -2, 1f))
+            val stableTags = listOf("Khung", "Nền", "Logo", "Mẫu")
+            for ((index, item) in listOf(Language.text(context, "Khung") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), Language.text(context, "Nền") to Language.text(context, "Tùy chỉnh khung và nền trong suốt"), "Logo" to "Logo", Language.text(context, "Mẫu") to Language.text(context, "Mẫu nhiệm vụ")).withIndex()) {
+                val (label, target) = item
+                shortcuts.addView(button(label) { anchors[target]?.let { scroll.smoothScrollTo(0, it.top) } }.apply { tag = "shortcut-${stableTags[index]}" }, LinearLayout.LayoutParams(0, -2, 1f))
             }
             root.addView(shortcuts)
         }
@@ -249,6 +253,8 @@ class StampSettingsScreen(
             val show = section(Language.text(context, "Hiển thị trên ảnh và video"))
             for ((key, label) in listOf("time" to Language.text(context, "Ngày giờ"), "gps" to Language.text(context, "Toạ độ GPS"), "alt" to Language.text(context, "Độ cao"), "hdg" to Language.text(context, "Hướng la bàn"), "wmOn" to Language.text(context, "Watermark chìm"), "shutterSound" to Language.text(context, "Tiếng chụp ảnh"))) toggle(show, key, label)
             val app = section(Language.text(context, "Ứng dụng"))
+            app.addView(button(Language.text(context, "Xóa quảng cáo"), purchases))
+            app.addView(button(Language.text(context, "Tùy chọn quyền riêng tư"), privacyOptions))
             app.addView(button(Language.text(context, "Thông tin và phiên bản"), about))
             app.addView(text(Language.text(context, "Vị trí được dùng để đóng dấu và tra cứu địa chỉ qua dịch vụ Android. Ẩn dòng GPS không tắt định vị. Bạn có thể thu hồi quyền vị trí trong cài đặt điện thoại.")))
             app.addView(button(Language.text(context, "Chính sách quyền riêng tư")) {

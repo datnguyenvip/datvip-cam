@@ -1,0 +1,5 @@
+<resources>
+    <string name="admob_app_id" translatable="false">ca-app-pub-7989207995898060~1861019105</string>
+    <string name="admob_banner_id" translatable="false">ca-app-pub-7989207995898060/7126000259</string>
+    <string name="play_license_key" translatable="false">MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA325EYkHcXjlj1vX2dhNdXvmGqvTdXkFs3XUwiXveL52G4Oh2dKR32F2LNqO4kZM88mW/me3rCrZ2VGBJeLfeOTIGsAPILGlK1Hc3MVL/RLeTRlDUuin8yO5KM1315sEGQiZ2aTSlbJVfoMezTPVb94a0sKMocZQNW1anoXSyuIYVqNZuAVa2pDabjUcfxoWpHHKDp+oX5yzBJPoT9U+pkiewJlNq3BMIqIMHZohx0JBn10uaJpaJ2ERZghZH5SDg7K/7Xy3DzLZD+8uDJT+P4DFNb3fz7uSKjYybV/3ukp4ksZNzhLTYsj8Czew/Dnaweeo89HDX56/Tj/vcMHJ5HwIDAQAB</string>
+</resources>

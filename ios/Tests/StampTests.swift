@@ -5,7 +5,7 @@ import CoreLocation
 
 final class StampTests: XCTestCase {
     private var saved: [String: Any] = [:]
-    private let keys = NotePreset.keys + ["addr", "time", "gps", "alt", "hdg", "logoOn", "wmOn", "wm",
+    private let keys = NotePreset.keys + [AppLanguage.key, "addr", "time", "gps", "alt", "hdg", "logoOn", "wmOn", "wm",
                                           StampPreferences.backgroundKey, StampPreferences.opacityKey,
                                           StampPreferences.sizeKey, StampPreferences.logoOpacityKey,
                                           StampPreferences.removeLogoBackgroundKey]
@@ -17,6 +17,7 @@ final class StampTests: XCTestCase {
             UserDefaults.standard.removeObject(forKey: key)
         }
         UserDefaults.standard.set(false, forKey: "wmOn")
+        UserDefaults.standard.set("vi", forKey: AppLanguage.key)
     }
 
     override func tearDown() {

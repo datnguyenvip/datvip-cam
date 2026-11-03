@@ -102,6 +102,9 @@ class Item(val uri: Uri, val time: Long, val video: Boolean = false) { var lat: 
 
 @UnstableApi
 class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener {
+    private lateinit var adFree: AdFreePurchase
+    private var banner: CameraBanner? = null
+    private var lastPurchaseMessage = ""
     private val shutterSound = MediaActionSound()
     private lateinit var shutter: View
     private lateinit var photoModeButton: TextView
@@ -290,6 +293,14 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         bar.addView(cell(flipCamera, 52), one())
         bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast(Language.text(this@MainActivity, "Hãy đợi lưu video")) }, 52), one())
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        val adSlot = FrameLayout(this).apply { visibility = View.GONE }
+        root.addView(adSlot, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(12) })
+        adFree = AdFreePurchase(this) {
+            banner?.refresh()
+            if (adFree.message.isNotBlank() && adFree.message != lastPurchaseMessage) { lastPurchaseMessage = adFree.message; toast(adFree.message) }
+        }
+        banner = CameraBanner(this, adSlot, adFree)
+        adFree.start()
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
@@ -635,15 +646,18 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val sm = getSystemService(SensorManager::class.java)
         sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
     }
-    override fun onResume() { super.onResume(); if (granted(Manifest.permission.CAMERA) && provider == null) startCamera(); if (granted(Manifest.permission.ACCESS_FINE_LOCATION)) startSensors(); orient.enable() }
+    override fun onResume() { super.onResume(); if (granted(Manifest.permission.CAMERA) && provider == null) startCamera(); if (granted(Manifest.permission.ACCESS_FINE_LOCATION)) startSensors(); orient.enable(); banner?.resume(); if (::adFree.isInitialized) adFree.restore(false) }
     override fun onPause() {
         if (recording != null) stopVideo()
+        banner?.pause()
         super.onPause(); orient.disable()
         getSystemService(LocationManager::class.java).removeUpdates(this)
         getSystemService(SensorManager::class.java).unregisterListener(this)
     }
     override fun onDestroy() {
         destroying = true
+        banner?.close()
+        if (::adFree.isInitialized) adFree.close()
         recording?.close(); recording = null
         videoExporter.cancel()
         shutterSound.release()
@@ -702,7 +716,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             reloadLogo = { loadLogo() }, logo = { logoBmp },
             pickLogo = { pickLogo.launch("image/*") },
             resetLogo = { File(filesDir, "logo.png").delete(); loadLogo(); refresh() },
-            about = { showAppInfo() }, quick = quick)
+            about = { showAppInfo() }, purchases = { showPurchaseOptions() }, privacyOptions = { banner?.privacyOptions() }, quick = quick)
         settingsScreen?.show()
     }
 
@@ -716,6 +730,17 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         }
         AlertDialog.Builder(this).setTitle(Language.text(this@MainActivity, "Thông tin")).setView(ScrollView(this).apply { addView(content) })
             .setPositiveButton(Language.text(this@MainActivity, "Đóng"), null).show()
+    }
+    private fun showPurchaseOptions() {
+        val title = Language.text(this, "Xóa quảng cáo")
+        val message = if (adFree.owned) Language.text(this, "Quảng cáo đã được xóa")
+            else adFree.price()?.let { Language.text(this, "Mua một lần: {0}", it) } ?: Language.text(this, "Sản phẩm chưa được cửa hàng cung cấp")
+        val dialog = AlertDialog.Builder(this).setTitle(title).setMessage(message)
+            .setNeutralButton(Language.text(this, "Khôi phục mua hàng")) { _, _ -> adFree.restore() }
+            .setNegativeButton(Language.text(this, "Đóng"), null)
+            .setPositiveButton(title) { _, _ -> adFree.buy() }.create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = !adFree.owned && !adFree.busy && adFree.price() != null }
+        dialog.show()
     }
     private fun directionsLink(lat: Double, lon: Double): String =
         "https://www.google.com/maps/dir/?api=1&destination=" + String.format(Locale.US, "%.6f,%.6f", lat, lon) + "&travelmode=driving"
