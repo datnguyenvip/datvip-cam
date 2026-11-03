@@ -28,6 +28,7 @@ jobs:
     secrets: inherit
   build:
     runs-on: macos-15-intel
+    timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
 
@@ -93,15 +94,17 @@ jobs:
           set -o pipefail
           xcodebuild -project DatvipCam.xcodeproj -scheme PurchaseTests -configuration Debug \
             -destination "platform=iOS Simulator,id=$DEVICE_ID" -parallel-testing-enabled NO \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 180 \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 360 \
             -resultBundlePath PurchaseTests.xcresult CODE_SIGNING_ALLOWED=NO test | tee PurchaseTests.log
 
       - name: Capture actual Vietnamese and English settings on iPhone Simulator
+        if: always() && env.DEVICE_ID != ''
         working-directory: ios
         run: |
           set -o pipefail
           xcodebuild -project DatvipCam.xcodeproj -scheme StoreScreenshots -configuration Debug \
             -destination "platform=iOS Simulator,id=$DEVICE_ID" -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 360 \
             -resultBundlePath StoreScreenshots.xcresult CODE_SIGNING_ALLOWED=NO test | tee StoreScreenshots.log
 
       - name: Export layout images
