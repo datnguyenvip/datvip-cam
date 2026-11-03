@@ -27,7 +27,7 @@ jobs:
       upload: ${{ inputs.upload }}
     secrets: inherit
   build:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
 

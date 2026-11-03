@@ -41,6 +41,7 @@ final class AdFreeStoreTests: XCTestCase {
         await store.loadProduct()
         XCTAssertNotNil(store.product)
         await store.buy()
+        XCTAssertEqual(store.message, AppLanguage.text("Mua hàng đang chờ xác nhận"))
         await store.refresh()
         XCTAssertFalse(store.owned)
     }
