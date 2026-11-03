@@ -18,7 +18,7 @@ final class AdFreeStoreTests: XCTestCase {
         let reopened = AdFreeStore()
         await reopened.refresh()
         XCTAssertTrue(reopened.owned)
-        try session.refundTransaction(identifier: Int(transaction.id))
+        try session.refundTransaction(identifier: UInt(transaction.id))
         await reopened.refresh()
         XCTAssertFalse(reopened.owned)
     }
