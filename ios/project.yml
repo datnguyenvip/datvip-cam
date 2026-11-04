@@ -33,6 +33,8 @@ targets:
     info:
       path: Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: Field Camera
         ITSAppUsesNonExemptEncryption: false
         GADApplicationIdentifier: ca-app-pub-7989207995898060~8435659601
