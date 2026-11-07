@@ -902,6 +902,15 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (la == null || oa == null || lb == null || ob == null) return false
         val r = FloatArray(1); Location.distanceBetween(la, oa, lb, ob, r); return r[0] < 100f
     }
+    @android.annotation.TargetApi(30)
+    private fun createDeleteRequestApi30(
+        uris: List<android.net.Uri>
+    ): android.app.PendingIntent {
+        return MediaStore.createDeleteRequest(
+            contentResolver,
+            uris
+        )
+    }
     private fun requestMediaDeletion(
         selected: List<Uri>,
         finished: () -> Unit
@@ -932,8 +941,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 return
             }
 
-            val request = MediaStore.createDeleteRequest(
-                contentResolver,
+            val request = createDeleteRequestApi30(
                 remaining
             )
 
