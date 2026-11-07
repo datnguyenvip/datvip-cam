@@ -2,6 +2,9 @@ package com.datvip.cam
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.RecoverableSecurityException
+import androidx.activity.result.IntentSenderRequest
+import android.app.Activity
 import android.app.Dialog
 import android.content.ClipData
 import android.content.ContentUris
@@ -173,6 +176,102 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (granted(Manifest.permission.CAMERA)) startCamera()
         startSensors()
         offerVideoRecovery()
+    }
+    private var pendingMediaDelete: List<Uri> = emptyList()
+    private var onMediaDeleteFinished: (() -> Unit)? = null
+    private var mediaDeleteIndex = 0
+    private var awaitingMediaConsent = false
+    private val consentAttempted = mutableSetOf<Uri>()
+
+    private fun mediaExists(uri: Uri): Boolean? =
+        try {
+            contentResolver.query(
+                uri,
+                arrayOf(MediaStore.MediaColumns._ID),
+                null, null, null
+            )?.use { it.moveToFirst() }
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun finishMediaDeletion() {
+        val remaining = pendingMediaDelete.count { mediaExists(it) != false }
+        val callback = onMediaDeleteFinished
+
+        pendingMediaDelete = emptyList()
+        onMediaDeleteFinished = null
+        mediaDeleteIndex = 0
+        awaitingMediaConsent = false
+        consentAttempted.clear()
+
+        if (remaining == 0) {
+            toast("Media deletion verified")
+        } else {
+            toast("Media not deleted or not verifiable: $remaining")
+        }
+
+        callback?.invoke()
+    }
+
+    private val mediaDeleteLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            awaitingMediaConsent = false
+
+            if (result.resultCode != Activity.RESULT_OK) {
+                toast("Media deletion cancelled")
+                val callback = onMediaDeleteFinished
+                pendingMediaDelete = emptyList()
+                onMediaDeleteFinished = null
+                mediaDeleteIndex = 0
+                consentAttempted.clear()
+                callback?.invoke()
+            } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                deleteNextAndroid10()
+            } else {
+                finishMediaDeletion()
+            }
+        }
+
+    private fun deleteNextAndroid10() {
+        while (mediaDeleteIndex < pendingMediaDelete.size) {
+            val uri = pendingMediaDelete[mediaDeleteIndex]
+
+            if (mediaExists(uri) == false) {
+                mediaDeleteIndex++
+                continue
+            }
+
+            try {
+                contentResolver.delete(uri, null, null)
+                mediaDeleteIndex++
+            } catch (error: RecoverableSecurityException) {
+                if (awaitingMediaConsent) return
+
+                if (!consentAttempted.add(uri)) {
+                    mediaDeleteIndex++
+                    continue
+                }
+
+                awaitingMediaConsent = true
+                try {
+                    mediaDeleteLauncher.launch(
+                        IntentSenderRequest.Builder(
+                            error.userAction.actionIntent.intentSender
+                        ).build()
+                    )
+                } catch (_: Exception) {
+                    awaitingMediaConsent = false
+                    mediaDeleteIndex++
+                }
+                return
+            } catch (_: Exception) {
+                mediaDeleteIndex++
+            }
+        }
+
+        finishMediaDeletion()
     }
     private val pickLogo = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) saveLogo(uri) }
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
@@ -803,6 +902,50 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         if (la == null || oa == null || lb == null || ob == null) return false
         val r = FloatArray(1); Location.distanceBetween(la, oa, lb, ob, r); return r[0] < 100f
     }
+    private fun requestMediaDeletion(
+        selected: List<Uri>,
+        finished: () -> Unit
+    ) {
+        if (selected.isEmpty()) {
+            finished()
+            return
+        }
+
+        if (pendingMediaDelete.isNotEmpty()) return
+
+        pendingMediaDelete = selected.distinct()
+        onMediaDeleteFinished = finished
+        mediaDeleteIndex = 0
+
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            deleteNextAndroid10()
+            return
+        }
+
+        try {
+            val remaining = pendingMediaDelete.filter {
+                mediaExists(it) != false
+            }
+
+            if (remaining.isEmpty()) {
+                finishMediaDeletion()
+                return
+            }
+
+            val request = MediaStore.createDeleteRequest(
+                contentResolver,
+                remaining
+            )
+
+            mediaDeleteLauncher.launch(
+                IntentSenderRequest.Builder(
+                    request.intentSender
+                ).build()
+            )
+        } catch (_: Exception) {
+            finishMediaDeletion()
+        }
+    }
     private fun openGallery() {
         val dialog = Dialog(this, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE); setPadding(0, dp(24), 0, 0) }
@@ -821,7 +964,13 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val share = Button(this).apply { text = Language.text(this@MainActivity, "Chia sẻ"); setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_share, 0, 0); isEnabled = false }
         val maps = Button(this).apply { text = Language.text(this@MainActivity, "Liên kết Maps"); setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.ic_menu_mylocation, 0, 0); isEnabled = false }
-        actions.addView(share, LinearLayout.LayoutParams(0, -2, 1f)); actions.addView(maps, LinearLayout.LayoutParams(0, -2, 1f))
+        val deleteMedia = Button(this).apply {
+            text = Language.text(this@MainActivity, "Xóa")
+            isEnabled = false
+        }
+        actions.addView(share, LinearLayout.LayoutParams(0, -2, 1f))
+        actions.addView(maps, LinearLayout.LayoutParams(0, -2, 1f))
+        actions.addView(deleteMedia, LinearLayout.LayoutParams(0, -2, 1f))
         footer.addView(summary); footer.addView(hint); footer.addView(actions); root.addView(footer)
         val items = ArrayList<Item>(); val checks = HashMap<Item, TextView>(); val dayButtons = ArrayList<Pair<List<Item>, Button>>()
         var last: Item? = null; var preparing = false
@@ -835,7 +984,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 text.isEmpty() -> Language.text(this@MainActivity, "Tệp đã chọn không có vị trí GPS")
                 else -> Language.text(this@MainActivity, "Kèm link Maps và chép sẵn để dán nếu ứng dụng nhận chỉ lấy ảnh/video")
             }
-            share.isEnabled = selected.isNotEmpty() && !preparing; maps.isEnabled = text.isNotEmpty() && !preparing
+            share.isEnabled = selected.isNotEmpty() && !preparing
+            maps.isEnabled = text.isNotEmpty() && !preparing
+            deleteMedia.isEnabled = selected.isNotEmpty() && !preparing
             checks.forEach { (item, label) -> label.text = if (item.sel) "✓" else "○"; label.setBackgroundColor(if (item.sel) 0xFF0099F0.toInt() else 0x66000000) }
             dayButtons.forEach { (group, button) -> button.isSelected = group.all { it.sel }; button.setCompoundDrawablesWithIntrinsicBounds(0, 0, if (button.isSelected) android.R.drawable.checkbox_on_background else android.R.drawable.checkbox_off_background, 0) }
         }
@@ -846,6 +997,37 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             }
         }
         maps.setOnClickListener { showMapsLinks(batchText(items.filter { it.sel })) }
+        deleteMedia.setOnClickListener {
+            val selected = items.filter { it.sel }.map { it.uri }
+
+            if (selected.isNotEmpty() && !preparing) {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(Language.text(this@MainActivity, "Xóa ảnh/video"))
+                    .setMessage(
+                        Language.text(this@MainActivity, "Xóa ảnh/video đã chọn?") +
+                            " (${selected.size})"
+                    )
+                    .setNegativeButton(
+                        Language.text(this@MainActivity, "Hủy"),
+                        null
+                    )
+                    .setPositiveButton(
+                        Language.text(this@MainActivity, "Xóa")
+                    ) { _, _ ->
+                        preparing = true
+                        update()
+
+                        requestMediaDeletion(selected) {
+                            preparing = false
+                            if (dialog.isShowing) {
+                                dialog.dismiss()
+                                openGallery()
+                            }
+                        }
+                    }
+                    .show()
+            }
+        }
         menu.setOnClickListener {
             AlertDialog.Builder(this).setItems(arrayOf(if (items.all { it.sel }) Language.text(this@MainActivity, "Bỏ chọn tất cả") else Language.text(this@MainActivity, "Chọn tất cả"), Language.text(this@MainActivity, "Chọn cùng vị trí"))) { _, action ->
                 if (action == 0) { val all = items.all { it.sel }; items.forEach { it.sel = !all } }

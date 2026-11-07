@@ -67,22 +67,60 @@ final class AdFreeStore: ObservableObject {
 
 struct AdFreeSettingsSection: View {
     @EnvironmentObject private var store: AdFreeStore
+    @State private var showPurchaseConfirmation = false
+
     var body: some View {
         Section(AppLanguage.text("Xóa quảng cáo")) {
-            if store.owned { Text(AppLanguage.text("Quảng cáo đã được xóa")) }
-            else {
-                Button {
-                    Task { await store.buy() }
-                } label: {
-                    Text(store.product.map { AppLanguage.text("Mua một lần: {0}", $0.displayPrice) } ?? AppLanguage.text("Sản phẩm chưa được cửa hàng cung cấp"))
-                }.disabled(store.busy || store.product == nil)
+            if store.owned {
+                Text(AppLanguage.text("Quảng cáo đã được xóa"))
+            } else {
+                Button(AppLanguage.text("Mua Pro - Xóa quảng cáo")) {
+                    showPurchaseConfirmation = true
+                }
+                .disabled(store.busy || store.product == nil)
             }
-            Button(AppLanguage.text("Khôi phục mua hàng")) { Task { await store.restore() } }.disabled(store.busy)
-            if store.busy { ProgressView() }
+
+            Button(AppLanguage.text("Khôi phục mua hàng")) {
+                Task { await store.restore() }
+            }
+            .disabled(store.busy)
+
+            if store.busy {
+                ProgressView()
+            }
         }
-        .task { await store.loadProduct() }
-        .alert(AppLanguage.text("Xóa quảng cáo"), isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
-            Button(AppLanguage.text("Đóng"), role: .cancel) { store.message = nil }
-        } message: { Text(store.message ?? "") }
+        .task {
+            await store.loadProduct()
+        }
+        .confirmationDialog(
+            AppLanguage.text("Xóa quảng cáo"),
+            isPresented: $showPurchaseConfirmation,
+            titleVisibility: .visible
+        ) {
+            if let product = store.product {
+                Button(
+                    AppLanguage.text("Mua một lần: {0}", product.displayPrice)
+                ) {
+                    Task { await store.buy() }
+                }
+            }
+
+            Button(AppLanguage.text("Hủy"), role: .cancel) {}
+        } message: {
+            Text(AppLanguage.text("Mua một lần để xóa quảng cáo vĩnh viễn."))
+        }
+        .alert(
+            AppLanguage.text("Xóa quảng cáo"),
+            isPresented: Binding(
+                get: { store.message != nil },
+                set: { if !$0 { store.message = nil } }
+            )
+        ) {
+            Button(AppLanguage.text("Đóng"), role: .cancel) {
+                store.message = nil
+            }
+        } message: {
+            Text(store.message ?? "")
+        }
     }
 }

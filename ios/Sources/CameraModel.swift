@@ -7,7 +7,7 @@ import ImageIO
 import Photos
 import UniformTypeIdentifiers
 
-struct PhotoRec: Codable, Identifiable { var file: String; var time: Date; var lat: Double?; var lon: Double?; var video: Bool? = nil; var id: String { file } }
+struct PhotoRec: Codable, Identifiable { var file: String; var time: Date; var lat: Double?; var lon: Double?; var video: Bool? = nil; var photosAssetID: String? = nil; var id: String { file } }
 
 extension UIImage {
     func normalized() -> UIImage {
@@ -80,6 +80,155 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         return r
     }
 
+    @discardableResult
+    static func deleteRecords(_ selected: [PhotoRec]) throws -> Int {
+        let selectedIDs = Set(selected.map(\.id))
+        guard !selectedIDs.isEmpty else { return 0 }
+
+        let existing = loadRecs()
+        let targets = existing.filter { selectedIDs.contains($0.id) }
+        guard !targets.isEmpty else { return 0 }
+
+        let fm = FileManager.default
+        let directory = photosDir.standardizedFileURL
+        let trash = directory.appendingPathComponent(
+            ".delete-\(UUID().uuidString)",
+            isDirectory: true
+        )
+
+        try fm.createDirectory(
+            at: trash,
+            withIntermediateDirectories: true
+        )
+
+        var moved: [(original: URL, temporary: URL)] = []
+        var deletedIDs = Set<String>()
+
+        do {
+            for record in targets {
+                let original = directory
+                    .appendingPathComponent(record.file)
+                    .standardizedFileURL
+
+                guard original.deletingLastPathComponent() == directory else {
+                    throw CocoaError(.fileReadNoPermission)
+                }
+
+                if fm.fileExists(atPath: original.path) {
+                    let temporary = trash.appendingPathComponent(
+                        UUID().uuidString
+                    )
+
+                    try fm.moveItem(
+                        at: original,
+                        to: temporary
+                    )
+
+                    moved.append((original, temporary))
+                }
+
+                deletedIDs.insert(record.id)
+            }
+
+            let remaining = existing.filter {
+                !deletedIDs.contains($0.id)
+            }
+
+            let data = try JSONEncoder().encode(remaining)
+            try data.write(to: indexURL, options: .atomic)
+
+        } catch {
+            for item in moved.reversed() {
+                if fm.fileExists(atPath: item.temporary.path) {
+                    try? fm.moveItem(
+                        at: item.temporary,
+                        to: item.original
+                    )
+                }
+            }
+
+            try? fm.removeItem(at: trash)
+            throw error
+        }
+
+        try? fm.removeItem(at: trash)
+        return deletedIDs.count
+    }
+    private static let photosIndexQueue =
+        DispatchQueue(label: "com.datvip.cam.photos-index")
+
+    @discardableResult
+    static func appendPhotoRecord(_ record: PhotoRec) -> Bool {
+        photosIndexQueue.sync {
+            var records = loadRecs()
+
+            guard !records.contains(where: { $0.id == record.id }) else {
+                return false
+            }
+
+            records.insert(record, at: 0)
+
+            guard let data = try? JSONEncoder().encode(records) else {
+                return false
+            }
+
+            do {
+                try data.write(to: indexURL, options: .atomic)
+                return true
+            } catch {
+                return false
+            }
+        }
+    }
+    enum PhotosAssetStatus {
+        case exists
+        case missing
+        case unknown
+    }
+
+    static func photosAssetStatus(
+        for record: PhotoRec
+    ) -> PhotosAssetStatus {
+        guard let assetID = record.photosAssetID,
+              !assetID.isEmpty else {
+            return .unknown
+        }
+
+        let authorization = PHPhotoLibrary.authorizationStatus(
+            for: .readWrite
+        )
+
+        guard authorization == .authorized else {
+            return .unknown
+        }
+
+        let assets = PHAsset.fetchAssets(
+            withLocalIdentifiers: [assetID],
+            options: nil
+        )
+
+        return assets.count > 0 ? .exists : .missing
+    }
+    static func updatePhotosAssetID(
+        file: String,
+        assetID: String
+    ) {
+        photosIndexQueue.sync {
+            var records = loadRecs()
+
+            guard let index = records.firstIndex(
+                where: { $0.file == file }
+            ) else { return }
+
+            records[index].photosAssetID = assetID
+
+            guard let data = try? JSONEncoder().encode(records) else {
+                return
+            }
+
+            try? data.write(to: indexURL, options: .atomic)
+        }
+    }
     override init() {
         super.init()
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
@@ -235,19 +384,27 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
     private func finishVideo(_ tmp: URL, _ d: Date, _ l: CLLocation?) {
         let f = DateFormatter(); f.dateFormat = "yyyyMMdd_HHmmss"
-        let name = "DatvipCam_" + f.string(from: d) + ".mp4"
+        let name = "DatvipCam_" + f.string(from: d) + "_" + UUID().uuidString + ".mp4"
         let dst = CameraModel.photosDir.appendingPathComponent(name)
-        try? FileManager.default.removeItem(at: dst)
+
         do { try FileManager.default.moveItem(at: tmp, to: dst) } catch { return }
-        var recs = CameraModel.loadRecs()
-        recs.insert(PhotoRec(file: name, time: d, lat: l?.coordinate.latitude, lon: l?.coordinate.longitude, video: true), at: 0)
-        if let j = try? JSONEncoder().encode(recs) { try? j.write(to: CameraModel.indexURL) }
+        guard CameraModel.appendPhotoRecord(PhotoRec(file: name, time: d, lat: l?.coordinate.latitude, lon: l?.coordinate.longitude, video: true)) else { return }
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { st in
             guard st == .authorized || st == .limited else { return }
+            var createdAssetID: String?
+
             PHPhotoLibrary.shared().performChanges {
                 let r = PHAssetCreationRequest.forAsset()
                 r.addResource(with: .video, fileURL: dst, options: nil)
                 r.location = l
+                createdAssetID = r.placeholderForCreatedAsset?.localIdentifier
+            } completionHandler: { success, error in
+                if success, let assetID = createdAssetID {
+                    CameraModel.updatePhotosAssetID(
+                        file: name,
+                        assetID: assetID
+                    )
+                }
             }
         }
     }
@@ -285,18 +442,26 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private func save(_ data: Data, _ d: Date, _ l: CLLocation?) {
         // bản trong app (để xem lại và chia sẻ hàng loạt)
         let f = DateFormatter(); f.dateFormat = "yyyyMMdd_HHmmss"
-        let name = "DatvipCam_" + f.string(from: d) + ".jpg"
+        let name = "DatvipCam_" + f.string(from: d) + "_" + UUID().uuidString + ".jpg"
         try? data.write(to: CameraModel.photosDir.appendingPathComponent(name))
-        var recs = CameraModel.loadRecs()
-        recs.insert(PhotoRec(file: name, time: d, lat: l?.coordinate.latitude, lon: l?.coordinate.longitude), at: 0)
-        if let j = try? JSONEncoder().encode(recs) { try? j.write(to: CameraModel.indexURL) }
+        guard CameraModel.appendPhotoRecord(PhotoRec(file: name, time: d, lat: l?.coordinate.latitude, lon: l?.coordinate.longitude)) else { return }
         // bản trong thư viện Ảnh
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { st in
             guard st == .authorized || st == .limited else { return }
+            var createdAssetID: String?
+
             PHPhotoLibrary.shared().performChanges {
                 let r = PHAssetCreationRequest.forAsset()
                 r.addResource(with: .photo, data: data, options: nil)
                 r.location = l
+                createdAssetID = r.placeholderForCreatedAsset?.localIdentifier
+            } completionHandler: { success, error in
+                if success, let assetID = createdAssetID {
+                    CameraModel.updatePhotosAssetID(
+                        file: name,
+                        assetID: assetID
+                    )
+                }
             }
         }
     }

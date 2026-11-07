@@ -217,11 +217,28 @@ struct NotePresetsSection: View {
         )) ?? []
     }
 
-    private func save(_ items: [NotePreset]) {
-        if let data = try? JSONEncoder().encode(items),
-           let text = String(data: data, encoding: .utf8) {
-            stored = text
+    @discardableResult
+    private func save(_ items: [NotePreset]) -> Bool {
+        guard let data = try? JSONEncoder().encode(items),
+              let text = String(data: data, encoding: .utf8) else {
+            return false
         }
+
+        UserDefaults.standard.set(text, forKey: "noteTemplates")
+        stored = text
+
+        guard let saved = UserDefaults.standard.string(
+            forKey: "noteTemplates"
+        ),
+        let decoded = try? JSONDecoder().decode(
+            [NotePreset].self,
+            from: Data(saved.utf8)
+        ) else {
+            return false
+        }
+
+        return decoded.count == items.count &&
+            Set(decoded.map(\.id)) == Set(items.map(\.id))
     }
 
     private func installDefaultsIfNeeded() {
@@ -293,13 +310,15 @@ struct NotePresetsSection: View {
                     return
                 }
 
-                save(
-                    presets + [
-                        NotePreset(name: title, values: values)
-                    ]
-                )
-                name = ""
-                feedback = AppLanguage.text("Đã lưu mẫu.")
+                let newPreset = NotePreset(name: title, values: values)
+                let saved = save(presets + [newPreset])
+
+                if saved {
+                    name = ""
+                    feedback = AppLanguage.text("Đã lưu mẫu.")
+                } else {
+                    feedback = AppLanguage.text("Cannot save template. Please try again.")
+                }
             }
 
             ForEach(presets) { preset in

@@ -59,10 +59,27 @@ object NotePresets {
         }
     }.getOrDefault(emptyList())
 
-    fun save(preferences: SharedPreferences, presets: List<NotePreset>) {
+    fun save(preferences: SharedPreferences, presets: List<NotePreset>): Boolean {
+        if (presets.size > 20) return false
+
         val data = JSONArray()
-        presets.take(20).forEach { item -> data.put(JSONObject().put("id", item.id)
-            .put("name", item.name).put("values", JSONObject(item.values))) }
-        preferences.edit().putString("noteTemplates", data.toString()).apply()
+        presets.forEach { item ->
+            data.put(
+                JSONObject()
+                    .put("id", item.id)
+                    .put("name", item.name)
+                    .put("values", JSONObject(item.values))
+            )
+        }
+
+        val committed = preferences.edit()
+            .putString("noteTemplates", data.toString())
+            .commit()
+
+        if (!committed) return false
+
+        val restored = load(preferences)
+        return restored.size == presets.size &&
+            restored.map { it.id }.toSet() == presets.map { it.id }.toSet()
     }
 }

@@ -34,6 +34,7 @@ struct GalleryView: View {
     @State private var preparing = false
     @State private var message: String?
     @State private var showLinks = false
+    @State private var confirmDelete = false
     private let accent = Color(red: 0, green: 0.58, blue: 0.95)
 
     private var chosen: [PhotoRec] { records.filter { selection.contains($0.id) } }
@@ -98,6 +99,22 @@ struct GalleryView: View {
             .safeAreaInset(edge: .bottom) { exportActions }
             .disabled(preparing)
         }
+        .confirmationDialog(
+            AppLanguage.text("Xóa ảnh/video"),
+            isPresented: $confirmDelete,
+            titleVisibility: .visible
+        ) {
+            Button(
+                AppLanguage.text("Xóa") + " (\(selection.count))",
+                role: .destructive
+            ) {
+                deleteSelected()
+            }
+
+            Button(AppLanguage.text("Hủy"), role: .cancel) {}
+        } message: {
+            Text(AppLanguage.text("Xóa các ảnh/video đã chọn khỏi Camera HT?"))
+        }
         .sheet(item: $request) { payload in ShareSheet(items: payload.items) }
         .sheet(isPresented: $showLinks) { linksPanel }
         .alert(AppLanguage.text("Xuất & Chia sẻ"), isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
@@ -116,6 +133,15 @@ struct GalleryView: View {
             HStack(spacing: 12) {
                 Button { prepareShare() } label: { Label(AppLanguage.text("Chia sẻ"), systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).tint(accent).disabled(selection.isEmpty || preparing)
+                Button {
+                    confirmDelete = true
+                } label: {
+                    Label(AppLanguage.text("Xóa"), systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .disabled(selection.isEmpty || preparing)
+
                 Button { showLinks = true } label: { Label(AppLanguage.text("Liên kết Maps"), systemImage: "link").frame(maxWidth: .infinity) }
                     .buttonStyle(.bordered).disabled(links.isEmpty || preparing)
             }
@@ -136,6 +162,32 @@ struct GalleryView: View {
         }.presentationDetents([.medium, .large])
     }
 
+    private func deleteSelected() {
+        guard !preparing, !chosen.isEmpty else { return }
+
+        let selected = chosen
+
+        do {
+            let count = try CameraModel.deleteRecords(selected)
+
+            records = CameraModel.loadRecs()
+                .sorted { $0.time > $1.time }
+
+            selection.removeAll()
+            last = nil
+
+            message = AppLanguage.text("Đã xóa") + " \(count)"
+        } catch {
+            records = CameraModel.loadRecs()
+                .sorted { $0.time > $1.time }
+
+            selection = selection.intersection(
+                Set(records.map(\.id))
+            )
+
+            message = AppLanguage.text("Không thể xóa một số tệp.")
+        }
+    }
     private func prepareShare() {
         guard !preparing, !chosen.isEmpty else { return }
         // Freeze selection and links before any asynchronous work or sheet presentation.

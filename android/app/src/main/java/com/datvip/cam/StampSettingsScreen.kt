@@ -198,7 +198,30 @@ class StampSettingsScreen(
                 currentValues().values.all { it.isBlank() } -> Toast.makeText(context, Language.text(context, "Nhập nội dung trước khi lưu"), Toast.LENGTH_SHORT).show()
                 else -> askName("") { name ->
                     if (current.any { it.name.equals(name, true) }) Toast.makeText(context, Language.text(context, "Tên mẫu đã có"), Toast.LENGTH_SHORT).show()
-                    else { NotePresets.save(preferences, current + NotePreset(UUID.randomUUID().toString(), name, currentValues())); redrawPresets() }
+                    else {
+    val newPreset = NotePreset(
+        UUID.randomUUID().toString(),
+        name,
+        currentValues()
+    )
+
+    val saved = NotePresets.save(preferences, current + newPreset)
+
+    if (saved) {
+        redrawPresets()
+        Toast.makeText(
+            context,
+            "Template saved",
+            Toast.LENGTH_SHORT
+        ).show()
+    } else {
+        Toast.makeText(
+            context,
+            "Cannot save template",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+}
                 }
             }
         })

@@ -47,6 +47,7 @@ targets:
         NSLocationWhenInUseUsageDescription: Datvip Cam cần vị trí để đóng dấu toạ độ lên ảnh.
         NSMicrophoneUsageDescription: Datvip Cam cần micro để ghi âm khi quay video.
         NSPhotoLibraryAddUsageDescription: Datvip Cam cần quyền lưu ảnh vào thư viện.
+        NSPhotoLibraryUsageDescription: Camera HT can check whether photos and videos saved by this app are still available in Photos.
 
   StampTests:
     type: bundle.unit-test
