@@ -169,7 +169,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private val boolKeys get() = listOf("time" to Language.text(this@MainActivity, "Ngày giờ"), "gps" to Language.text(this@MainActivity, "Toạ độ GPS"), "alt" to Language.text(this@MainActivity, "Độ cao"), "hdg" to Language.text(this@MainActivity, "Hướng la bàn"), "wmOn" to Language.text(this@MainActivity, "Watermark chìm"), "logoOn" to Language.text(this@MainActivity, "Hiện logo lên ảnh"), "shutterSound" to Language.text(this@MainActivity, "Tiếng chụp ảnh"))
 
     private fun s(k: String) = sp.getString(k, "") ?: ""
-    private fun b(k: String) = sp.getBoolean(k, true)
+    private fun b(k: String) = sp.getBoolean(k, k != "logoOn")
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private val perms = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -862,8 +862,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     private fun originalLogo(): Bitmap? {
         val file = File(filesDir, "logo.png")
-        return (if (file.exists()) BitmapFactory.decodeFile(file.path) else null)
-            ?: BitmapFactory.decodeResource(resources, R.drawable.default_antt_logo, BitmapFactory.Options().apply { inSampleSize = 2; inScaled = false })
+        return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
     }
     private fun loadLogo() {
         val original = originalLogo()

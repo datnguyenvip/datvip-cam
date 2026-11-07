@@ -120,84 +120,30 @@ struct NotePreset: Codable, Identifiable {
     static func make(
         _ name: String,
         _ project: String,
-        _ detail: String = "",
-        _ label: String = "",
-        _ value: String = "",
-        _ note: String = ""
+        _ location: String
     ) -> NotePreset {
         NotePreset(
             name: name,
             values: [
                 "proj": project,
-                "note": note,
-                "f1l": label,
-                "f1v": value,
-                "f2l": "ANCS",
-                "f2v": "DatVip – tổ 3",
+                "note": "",
+                "f1l": "Địa điểm",
+                "f1v": location,
+                "f2l": "",
+                "f2v": "",
                 "f3l": "",
                 "f3v": "",
                 "f4l": "",
                 "f4v": ""
-            ].merging(
-                detail.isEmpty ? [:] : ["f3v": detail]
-            ) { _, new in new }
+            ]
         )
     }
 
     static let builtIn: [NotePreset] = [
-        make(
-            "Giao thông",
-            "Trực chốt giao thông",
-            "",
-            "Địa điểm",
-            "Ngã ba đường Hoàng Cầm - đường số 5"
-        ),
-        make(
-            "Karaoke",
-            "Mở nhạc/karaoke gây tiếng ồn",
-            "",
-            "Xử lý",
-            "Đã nhắc nhở"
-        ),
-        make(
-            "Đưa đối tượng đi test",
-            "Đưa đối tượng đi test/khám sức khỏe",
-            "",
-            "Bệnh viện/TT Y tế",
-            "Linh Xuân"
-        ),
-        make(
-            "Bảo vệ hiện trường",
-            "Bảo vệ hiện trường",
-            "",
-            "Vụ việc",
-            "Tai nạn giao thông tại"
-        ),
-        make(
-            "Giao phạm",
-            "Đưa đối tượng đi trại",
-            "",
-            "Trại",
-            "Bố Lá"
-        ),
-        make(
-            "Tuần tra",
-            "Tuần tra/xử lý vi phạm",
-            "",
-            "Nội dung",
-            "Xử lý vi phạm"
-        ),
-        make(
-            "Đưa đối tượng đi khám xét",
-            "Đưa đối tượng đi khám xét"
-        ),
-        make(
-            "Hỗ trợ UB/KP",
-            "Hỗ trợ Ủy ban/Khu phố",
-            "",
-            "Nội dung",
-            "Xắp xếp"
-        )
+        make("Khảo sát", "Khảo sát hiện trường", "Công trình A"),
+        make("Giao nhận hàng", "Kiểm tra giao nhận hàng hóa", "Điểm giao nhận"),
+        make("Công trình", "Kiểm tra tiến độ thi công", "Công trình A"),
+        make("Du lịch", "Ghi lại hành trình", "Điểm tham quan")
     ]
 }
 
@@ -413,7 +359,7 @@ struct StampBackgroundSection: View {
     @AppStorage(StampPreferences.sizeKey) private var displaySize = StampPreferences.defaultSize
     @AppStorage(StampPreferences.logoOpacityKey) private var logoOpacity = 1.0
     @AppStorage(StampPreferences.removeLogoBackgroundKey) private var removeWhite = false
-    @AppStorage("logoOn") private var logoOn = true
+    @AppStorage("logoOn") private var logoOn = false
     @AppStorage(StampPreferences.backgroundKey)
     private var hex = StampPreferences.defaultHex
 

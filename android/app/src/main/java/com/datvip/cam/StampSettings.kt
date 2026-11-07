@@ -28,19 +28,21 @@ object NotePresets {
     val fields = listOf("proj" to "Nhiệm vụ / công việc", "note" to "Ghi chú") +
         (1..4).flatMap { listOf("f${it}l" to "Nhãn $it (VD: Tên)", "f${it}v" to "Nội dung $it (VD: Đạt)") }
 
-    private fun preset(id: String, name: String, project: String, label: String = "", value: String = "") = NotePreset(
-        "builtin-$id", name, fields.associate { it.first to "" } + mapOf("proj" to project,
-            "f1l" to label, "f1v" to value, "f2l" to "ANCS", "f2v" to "DatVip – tổ 3"))
-    val builtIn = listOf(
-        preset("traffic", "Giao thông", "Trực chốt giao thông", "Địa điểm", "Ngã ba đường Hoàng Cầm - đường số 5"),
-        preset("karaoke", "Karaoke", "Mở nhạc/karaoke gây tiếng ồn", "Xử lý", "Đã nhắc nhở"),
-        preset("test", "Đưa đối tượng đi test", "Đưa đối tượng đi test/khám sức khỏe", "Bệnh viện/TT Y tế", "Linh Xuân"),
-        preset("scene", "Bảo vệ hiện trường", "Bảo vệ hiện trường", "Vụ việc", "Tai nạn giao thông tại"),
-        preset("transfer", "Giao phạm", "Đưa đối tượng đi trại", "Trại", "Bố Lá"),
-        preset("patrol", "Tuần tra", "Tuần tra/xử lý vi phạm", "Nội dung", "Xử lý vi phạm"),
-        preset("search", "Đưa đối tượng đi khám xét", "Đưa đối tượng đi khám xét"),
-        preset("support", "Hỗ trợ UB/KP", "Hỗ trợ Ủy ban/Khu phố", "Nội dung", "Xắp xếp"))
+    private fun preset(id: String, name: String, project: String, location: String) = NotePreset(
+        "builtin-$id", name,
+        fields.associate { it.first to "" } + mapOf(
+            "proj" to project,
+            "f1l" to "Địa điểm",
+            "f1v" to location
+        )
+    )
 
+    val builtIn = listOf(
+        preset("survey", "Khảo sát", "Khảo sát hiện trường", "Công trình A"),
+        preset("delivery", "Giao nhận hàng", "Kiểm tra giao nhận hàng hóa", "Điểm giao nhận"),
+        preset("construction", "Công trình", "Kiểm tra tiến độ thi công", "Công trình A"),
+        preset("travel", "Du lịch", "Ghi lại hành trình", "Điểm tham quan")
+    )
     fun installDefaults(preferences: SharedPreferences) {
         if (preferences.getInt("noteTemplatesSeedVersion", 0) >= 1) return
         val existing = load(preferences)

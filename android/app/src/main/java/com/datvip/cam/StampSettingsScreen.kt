@@ -54,8 +54,8 @@ class StampSettingsScreen(
     private fun notifyChange() { changed(); refreshPreview() }
     fun refreshPreview() {
         logoPreviews.forEach { it.setImageBitmap(logo()) }
-        val rows = arrayListOf(Language.text(context, "Nhiệm vụ: ") + preferences.getString("proj", "").orEmpty().ifBlank { Language.text(context, "Nhật ký công việc") },
-            "\u200C" + preferences.getString("addr", "").orEmpty().ifBlank { "175 Đường Số 6, P. Linh Xuân, Thành phố Hồ Chí Minh" })
+        val rows = arrayListOf(Language.text(context, "Nhiệm vụ: ") + preferences.getString("proj", "").orEmpty().ifBlank { Language.text(context, "Khảo sát hiện trường") },
+            "\u200C" + preferences.getString("addr", "").orEmpty().ifBlank { "Địa điểm khảo sát" })
         for (i in 1..4) {
             val value = preferences.getString("f${i}v", "").orEmpty()
             val label = preferences.getString("f${i}l", "").orEmpty()
@@ -65,7 +65,7 @@ class StampSettingsScreen(
         previews.forEach {
             it.stamp = Stamp("10:51:00", Language.text(context, "Thứ Hai, 02/11/2026 (GMT+7)"), rows)
             it.appearance = StampSettings.appearance(preferences)
-            it.logo = logo().takeIf { preferences.getBoolean("logoOn", true) }
+            it.logo = logo().takeIf { preferences.getBoolean("logoOn", false) }
             it.invalidate()
         }
     }
@@ -270,7 +270,7 @@ class StampSettingsScreen(
             val logos = section("Logo")
             logos.addView(text(Language.text(context, "Logo BẢO VỆ ANTT có sẵn. Logo riêng được ưu tiên khi bạn chọn từ thư viện.")))
             logos.addView(ImageView(context).apply { tag = "logo-image"; scaleType = ImageView.ScaleType.FIT_CENTER; logoPreviews.add(this) }, LinearLayout.LayoutParams(-1, dp(72)))
-            toggle(logos, "logoOn", Language.text(context, "Hiện logo lên ảnh"))
+            toggle(logos, "logoOn", Language.text(context, "Hiện logo lên ảnh"), fallback = false)
             slider(logos, "stampLogoOpacity", Language.text(context, "Độ đậm logo"), 0, 100, 1f)
             toggle(logos, "stampLogoRemoveWhiteBackground", Language.text(context, "Ẩn nền trắng của logo"), false, true)
             logos.addView(button(Language.text(context, "Chọn logo từ thư viện"), pickLogo))

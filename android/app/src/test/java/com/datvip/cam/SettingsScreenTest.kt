@@ -45,12 +45,12 @@ class SettingsScreenTest {
         assertNotNull(logo.drawable)
         root.findViewWithTag<Switch>("stampLogoRemoveWhiteBackground").isChecked = true
         assertTrue(prefs.getBoolean("stampLogoRemoveWhiteBackground", false))
-        assertEquals(8, NotePresets.load(prefs).size)
-        val traffic = NotePresets.load(prefs).first { it.name == "Giao thông" }
-        root.findViewWithTag<Button>("preset:${traffic.id}").performClick()
-        assertEquals("Trực chốt giao thông", root.findViewWithTag<EditText>("proj").text.toString())
+        assertEquals(4, NotePresets.load(prefs).size)
+        val survey = NotePresets.load(prefs).first { it.name == "Khảo sát" }
+        root.findViewWithTag<Button>("preset:${survey.id}").performClick()
+        assertEquals("Khảo sát hiện trường", root.findViewWithTag<EditText>("proj").text.toString())
         assertEquals("Địa điểm", prefs.getString("f1l", ""))
-        assertEquals("Ngã ba đường Hoàng Cầm - đường số 5", root.findViewWithTag<EditText>("f1v").text.toString())
+        assertEquals("Công trình A", root.findViewWithTag<EditText>("f1v").text.toString())
         root.findViewWithTag<EditText>("f1v").setText("Địa điểm chỉnh sửa")
         assertEquals("Địa điểm chỉnh sửa", prefs.getString("f1v", ""))
         val another = StampSettingsScreen(context, prefs, logo = { selectedLogo }).createContent()

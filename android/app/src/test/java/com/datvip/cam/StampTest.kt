@@ -84,12 +84,12 @@ class StampTest {
     @Test fun defaultTemplatesPreserveExistingEdits() {
         val prefs = RuntimeEnvironment.getApplication().getSharedPreferences("test-presets", Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
-        val original = NotePreset("mine", "Giao thông", NotePresets.fields.associate { it.first to "edited" })
+        val original = NotePreset("mine", "Mẫu riêng của tôi", NotePresets.fields.associate { it.first to "edited" })
         NotePresets.save(prefs, listOf(original)); NotePresets.installDefaults(prefs)
         val once = NotePresets.load(prefs)
-        assertEquals(8, once.size); assertEquals(original, once.first())
+        assertEquals(5, once.size); assertEquals(original, once.first())
         NotePresets.installDefaults(prefs); assertEquals(once, NotePresets.load(prefs))
-        assertEquals(8, NotePresets.builtIn.size)
+        assertEquals(4, NotePresets.builtIn.size)
         assertNotNull(BitmapFactory.decodeResource(RuntimeEnvironment.getApplication().resources, R.drawable.default_antt_logo))
     }
 

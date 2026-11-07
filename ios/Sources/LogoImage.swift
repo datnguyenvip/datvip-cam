@@ -154,7 +154,6 @@ enum LogoImage {
         let signature = "\(modified)|\(attrs?[.size] ?? 0)|\(removeWhite)"
         if signature == cachedSignature { return cachedImage }
         let source = UIImage(contentsOfFile: CameraModel.logoURL.path)
-            ?? UIImage(named: "DefaultANTTLogo", in: Bundle(for: CameraModel.self), compatibleWith: nil)
         cachedImage = removeWhite ? source?.removingWhiteBackdrop() : source?.trimmingTransparentMargins()
         cachedSignature = signature
         return cachedImage

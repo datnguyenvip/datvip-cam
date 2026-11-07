@@ -194,7 +194,7 @@ struct SettingsView: View {
     @AppStorage("alt") private var alt = true
     @AppStorage("hdg") private var hdg = true
     @AppStorage("wmOn") private var wmOn = true
-    @AppStorage("logoOn") private var logoOn = true
+    @AppStorage("logoOn") private var logoOn = false
     @AppStorage("shutterSound") private var shutterSound = true
     @State private var pick: PhotosPickerItem?
     @State private var logoRevision = 0
