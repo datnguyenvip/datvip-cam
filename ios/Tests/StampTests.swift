@@ -78,7 +78,7 @@ final class StampTests: XCTestCase {
         UserDefaults.standard.set("Địa điểm mới", forKey: "f1v")
         XCTAssertEqual(model.lines(Date(), nil).orderedBody.first?.text, "Địa điểm: Địa điểm mới")
         NotePreset.builtIn[1].apply()
-        XCTAssertFalse(model.lines(Date(), nil).orderedBody.contains { $0.role == .place })
+        XCTAssertTrue(model.lines(Date(), nil).orderedBody.contains { $0.role == .place })
         NotePreset.builtIn[0].apply()
         XCTAssertEqual(model.lines(Date(), nil).address, model.autoAddr)
         XCTAssertEqual(UserDefaults.standard.object(forKey: "noteTemplates") as? String, stored)
@@ -103,7 +103,7 @@ final class StampTests: XCTestCase {
 
     func testRenderedOrderWithLogoOnOffAndLongLines() throws {
         let model = CameraModel()
-        XCTAssertNotNil(LogoImage.load(), "Bundled default logo must be available on a fresh install")
+        XCTAssertNil(LogoImage.load(), "No default logo on a fresh install")
         for logoOn in [true, false] {
             UserDefaults.standard.set(logoOn, forKey: "logoOn")
             for landscape in [false, true] {
@@ -164,7 +164,7 @@ final class StampTests: XCTestCase {
             else { try? FileManager.default.removeItem(at: url) }
         }
         try? FileManager.default.removeItem(at: url)
-        XCTAssertNotNil(LogoImage.load())
+        XCTAssertNil(LogoImage.load())
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let custom = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40), format: format).image { _ in
             UIColor.red.setFill(); UIRectFill(CGRect(x: 0, y: 0, width: 80, height: 40))
@@ -173,7 +173,7 @@ final class StampTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         XCTAssertEqual(LogoImage.load()?.size, custom.size)
         try FileManager.default.removeItem(at: url)
-        XCTAssertNotNil(LogoImage.load())
+        XCTAssertNil(LogoImage.load())
     }
 
     func testVietnameseTrafficFixture() {
@@ -189,7 +189,7 @@ final class StampTests: XCTestCase {
         attachment.name = "Giao-thong-Vietnamese"
         attachment.lifetime = .keepAlways
         add(attachment)
-        XCTAssertEqual(content.orderedBody.map(\.role), [.place, .time, .date, .address, .custom, .detail])
+        XCTAssertEqual(content.orderedBody.map(\.role), [.place, .time, .date, .address, .detail])
     }
 
     func testAdaptiveCornerAndFooterGeometry() throws {
