@@ -263,7 +263,7 @@ struct NotePresetsSection: View {
                     name = ""
                     feedback = AppLanguage.text("Đã lưu mẫu.")
                 } else {
-                    feedback = AppLanguage.text("Cannot save template. Please try again.")
+                    feedback = AppLanguage.text("Không lưu được mẫu. Vui lòng thử lại.")
                 }
             }
 

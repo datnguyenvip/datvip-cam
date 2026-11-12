@@ -1,11 +1,4 @@
 name: DatvipCam
-packages:
-  GoogleMobileAds:
-    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
-    exactVersion: 13.12.0
-  GoogleUMP:
-    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
-    exactVersion: 3.1.0
 options:
   bundleIdPrefix: com.datvip
   objectVersion: 56
@@ -14,14 +7,10 @@ options:
 targets:
   DatvipCam:
     type: application
-    dependencies:
-      - package: GoogleMobileAds
-        product: GoogleMobileAds
-      - package: GoogleUMP
-        product: GoogleUserMessagingPlatform
     platform: iOS
     sources:
-      - Sources
+      - path: Sources
+        excludes: [CameraBanner.swift, AdFreeStore.swift]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam
@@ -35,10 +24,8 @@ targets:
       properties:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        CFBundleDisplayName: Field Camera
+        CFBundleDisplayName: Camera HT
         ITSAppUsesNonExemptEncryption: false
-        GADApplicationIdentifier: ca-app-pub-7989207995898060~8435659601
-        GADDelayAppMeasurementInit: true
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, vi]
         UILaunchScreen: {}
@@ -67,22 +54,6 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.stamptests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
-  PurchaseTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - Tests/AdFreeStoreTests.swift
-      - path: Tests/RemoveAds.storekit
-        buildPhase: resources
-    dependencies:
-      - target: DatvipCam
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.datvip.cam.purchasetests
-        GENERATE_INFOPLIST_FILE: YES
-        SWIFT_VERSION: "5.0"
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DatvipCam.app/DatvipCam"
-        BUNDLE_LOADER: "$(TEST_HOST)"
   StoreScreenshots:
     type: bundle.ui-testing
     platform: iOS
@@ -96,15 +67,6 @@ targets:
         TEST_TARGET_NAME: DatvipCam
         SWIFT_VERSION: "5.0"
 schemes:
-  PurchaseTests:
-    build:
-      targets:
-        DatvipCam: all
-        PurchaseTests: [test]
-    test:
-      targets: [PurchaseTests]
-      environmentVariables:
-        CAMERA_HT_UI_TESTING: "1"
   DatvipCam:
     build:
       targets:
