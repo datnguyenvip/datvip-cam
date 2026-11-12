@@ -38,6 +38,27 @@ final class StoreScreenshotsTests: XCTestCase {
         done.tap()
         app.terminate()
     }
+    func testCameraControlsFitBothSensorLandscapeLayouts() {
+        for angle in ["90", "-90"] {
+            let app = XCUIApplication()
+            app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
+            app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = angle
+            app.launchArguments = ["-interfaceLanguage", "en", "-compositionGuides", "YES"]
+            app.launch()
+            let settings = app.buttons["gearshape"]
+            XCTAssertTrue(settings.waitForExistence(timeout: 30))
+            let bounds = app.frame
+            for name in ["gearshape", "photo.on.rectangle", "arrow.triangle.2.circlepath.camera"] {
+                let button = app.buttons[name]
+                XCTAssertTrue(button.isHittable)
+                XCTAssertTrue(bounds.contains(button.frame), "Control clipped at sensor angle \(angle): \(name)")
+            }
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = "camera-sensor-layout-\(angle)"; image.lifetime = .keepAlways
+            add(image)
+            app.terminate()
+        }
+    }
     func testVietnameseSettingsAndStampControls() { capture("vi") }
     func testEnglishSettingsAndStampControls() { capture("en") }
 }

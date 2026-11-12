@@ -35,6 +35,14 @@ final class CameraMotion: ObservableObject {
     private let manager = CMMotionManager()
     private var filter = CameraOrientationFilter()
     func start() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["CAMERA_HT_UI_TESTING"] == "1",
+           let value = ProcessInfo.processInfo.environment["CAMERA_HT_TEST_ANGLE"],
+           let testAngle = Double(value), [0.0, 90.0, -90.0, 180.0].contains(testAngle) {
+            angle = testAngle; tilt = 0
+            return
+        }
+        #endif
         guard !manager.isAccelerometerActive, manager.isAccelerometerAvailable else { return }
         manager.accelerometerUpdateInterval = 1.0 / 20
         manager.startAccelerometerUpdates(to: .main) { [weak self] data, _ in

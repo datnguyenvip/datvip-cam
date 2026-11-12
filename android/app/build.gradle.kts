@@ -17,15 +17,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    sourceSets.getByName("main").java.exclude("**/AdFreePurchase.kt", "**/CameraBanner.kt")
     testOptions { unitTests.isIncludeAndroidResources = true }
     buildTypes {
         getByName("release") { isMinifyEnabled = false }
         create("preview") {
             initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".kiemthu"
             versionNameSuffix = "-kiemthu"
-            resValue("string", "app_name", "Datvip Cam Mới")
+            resValue("string", "app_name", "Camera HT Thử")
             matchingFallbacks += listOf("release")
         }
     }

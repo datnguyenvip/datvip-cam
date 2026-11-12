@@ -9,3 +9,5 @@ Development base: `4bee65fdfa859bd49b72c768b0cc2ddecb958f9d`, branch `fix/camera
 - No store upload, signing, publishing or store configuration changes are authorized by this work. Run validation workflows with appstore=false and upload=false only.
 
 Evidence: https://github.com/datnguyenvip/datvip-cam/actions/runs/42448546912 and https://github.com/datnguyenvip/datvip-cam/actions/runs/42381838999.
+
+The retained signed IPA from run 42448546912 was independently inspected: CFBundleIdentifier=com.datvip.cam, CFBundleShortVersionString=1.1.0, CFBundleVersion=162.
