@@ -32,8 +32,6 @@ class StampSettingsScreen(
     private val pickLogo: () -> Unit = {},
     private val resetLogo: () -> Unit = {},
     private val about: () -> Unit = {},
-    private val purchases: () -> Unit = {},
-    private val privacyOptions: () -> Unit = {},
     private val quick: Boolean = false
 ) {
     private val orange = Color.rgb(255, 164, 92)
@@ -55,7 +53,7 @@ class StampSettingsScreen(
     fun refreshPreview() {
         logoPreviews.forEach { it.setImageBitmap(logo()) }
         val rows = arrayListOf(Language.text(context, "Nhiệm vụ: ") + preferences.getString("proj", "").orEmpty().ifBlank { Language.text(context, "Khảo sát hiện trường") },
-            "\u200C" + preferences.getString("addr", "").orEmpty().ifBlank { "Địa điểm khảo sát" })
+            "\u200C" + preferences.getString("addr", "").orEmpty().ifBlank { Language.text(context, "Địa điểm khảo sát") })
         for (i in 1..4) {
             val value = preferences.getString("f${i}v", "").orEmpty()
             val label = preferences.getString("f${i}l", "").orEmpty()
@@ -211,13 +209,13 @@ class StampSettingsScreen(
         redrawPresets()
         Toast.makeText(
             context,
-            "Template saved",
+            Language.text(context, "Đã lưu mẫu."),
             Toast.LENGTH_SHORT
         ).show()
     } else {
         Toast.makeText(
             context,
-            "Cannot save template",
+            Language.text(context, "Không lưu được mẫu. Vui lòng thử lại."),
             Toast.LENGTH_LONG
         ).show()
     }
@@ -233,6 +231,9 @@ class StampSettingsScreen(
         val custom = section(Language.text(context, "Trường tuỳ biến — Nhãn và nội dung"))
         for (i in 1..4) { field(custom, "f${i}l", Language.text(context, "Nhãn {0}", (i))); field(custom, "f${i}v", Language.text(context, "Nội dung {0}", (i)), true) }
         if (!quick) {
+            val camera = section(Language.text(context, "Chụp ảnh"))
+            toggle(camera, "compositionGuides", Language.text(context, "Căn chỉnh khung hình"), fallback = false)
+            camera.addView(text(Language.text(context, "Bật lưới 3×3 và cân bằng. Chỉ hiển thị trên khung ngắm, không lưu vào ảnh/video.")))
             val appearance = section(Language.text(context, "Tùy chỉnh khung và nền trong suốt"))
             val size = slider(appearance, "stampDisplaySize", Language.text(context, "Cỡ dấu"), 50, 120, .75f)
             val row = LinearLayout(context)
@@ -249,7 +250,7 @@ class StampSettingsScreen(
             }
             appearance.addView(palette)
             val hex = text(""); appearance.addView(hex)
-            rgb.forEachIndexed { index, bar -> appearance.addView(text(listOf(Language.text(context, "Đỏ"), Language.text(context, "Lục"), "Lam")[index])); bar.max = 255; appearance.addView(bar) }
+            rgb.forEachIndexed { index, bar -> appearance.addView(text(listOf(Language.text(context, "Đỏ"), Language.text(context, "Lục"), Language.text(context, "Lam"))[index])); bar.max = 255; appearance.addView(bar) }
             val initial = StampSettings.background(preferences); updateRgb(initial)
             fun saveColor() {
                 val value = String.format(Locale.US, "%02X%02X%02X", rgb[0].progress, rgb[1].progress, rgb[2].progress)
@@ -278,8 +279,6 @@ class StampSettingsScreen(
             val show = section(Language.text(context, "Hiển thị trên ảnh và video"))
             for ((key, label) in listOf("time" to Language.text(context, "Ngày giờ"), "gps" to Language.text(context, "Toạ độ GPS"), "alt" to Language.text(context, "Độ cao"), "hdg" to Language.text(context, "Hướng la bàn"), "wmOn" to Language.text(context, "Watermark chìm"), "shutterSound" to Language.text(context, "Tiếng chụp ảnh"))) toggle(show, key, label)
             val app = section(Language.text(context, "Ứng dụng"))
-            app.addView(button(Language.text(context, "Xóa quảng cáo"), purchases))
-            app.addView(button(Language.text(context, "Tùy chọn quyền riêng tư"), privacyOptions))
             app.addView(button(Language.text(context, "Chính sách quyền riêng tư")) {
                 val lang = if (Language.locale(context).language == "vi") "vi" else "en"
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://datnguyenvip.github.io/datvip-cam/privacy-1.1-$lang.html")))

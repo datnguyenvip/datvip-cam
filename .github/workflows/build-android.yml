@@ -2,13 +2,15 @@ name: Build Android APK and AAB
 on:
   workflow_dispatch:
   push:
-    branches: [codex/datvip-cam-verified-integration]
+   branches: [feature/camera-ht-language-guides-orientation]
     paths: ["android/**", ".github/workflows/build-android.yml"]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check interface translations
+        run: python3 scripts/check-localization.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

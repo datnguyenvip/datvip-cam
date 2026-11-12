@@ -12,8 +12,6 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:localeConfig="@xml/locales_config"
         android:theme="@style/Theme.AppCompat.NoActionBar">
-        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="@string/admob_app_id" />
-        <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT" android:value="true" />
         <service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false" android:exported="false">
             <meta-data android:name="autoStoreLocales" android:value="true" />
