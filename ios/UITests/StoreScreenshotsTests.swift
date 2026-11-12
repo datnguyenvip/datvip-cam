@@ -45,6 +45,19 @@ final class StoreScreenshotsTests: XCTestCase {
             app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = angle
             app.launchArguments = ["-interfaceLanguage", "en", "-compositionGuides", "YES"]
             app.launch()
+            let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            for _ in 0..<4 {
+                let alert = system.alerts.firstMatch
+                if !alert.waitForExistence(timeout: 2) { break }
+                let labels = ["Allow While Using App", "Allow Once", "OK", "Don’t Allow", "Don't Allow"]
+                if let label = labels.first(where: { alert.buttons[$0].exists }) {
+                    alert.buttons[label].tap()
+                } else {
+                    XCTFail("Unexpected permission alert: \(alert.label)")
+                    return
+                }
+            }
+            XCTAssertFalse(system.alerts.firstMatch.exists)
             let settings = app.buttons["gearshape"]
             XCTAssertTrue(settings.waitForExistence(timeout: 30))
             let bounds = app.frame

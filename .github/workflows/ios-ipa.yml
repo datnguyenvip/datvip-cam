@@ -4,6 +4,10 @@ name: Build unsigned IPA
 on:
   workflow_dispatch:
     inputs:
+      screenshots_only:
+        description: Recheck UI evidence after test-only changes (full validation is the default)
+        type: boolean
+        default: false
       appstore:
         description: Also build an App Store signed archive after tests pass
         type: boolean
@@ -74,7 +78,7 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/DatvipCam.app Payload/
           zip -qry DatvipCam-unsigned.ipa Payload
 
-      - name: Test stamp content and rendered layout on iOS Simulator
+      - name: Boot iPhone Simulator
         working-directory: ios
         run: |
           set -o pipefail
@@ -82,6 +86,11 @@ jobs:
           echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
+      - name: Test stamp content and rendered layout on iOS Simulator
+        if: inputs.screenshots_only != true
+        working-directory: ios
+        run: |
+          set -o pipefail
           xcodebuild \
             -project DatvipCam.xcodeproj \
             -scheme StampTests \
