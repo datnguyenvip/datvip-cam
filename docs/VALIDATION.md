@@ -19,14 +19,14 @@ Trạng thái: đã triển khai và đạt kiểm thử tự động; cần th�
 
 ## Kiểm thử tự động
 
-Mã iOS mới: `ec1ba2e`, sửa khung ngắm thu nhỏ khi xoay ngang; kết quả xác nhận ở mục cập nhật bên dưới. Các lượt `2f8a9e5` và `d324c9c` là bằng chứng của bản thử trước sửa lỗi này. Android được xác nhận trên `0ef1582` sau xử lý vùng tai thỏ/thanh điều hướng. Lựa chọn chạy riêng ảnh giao diện không được dùng để ký/phát hành.
+Mã iOS mới: `398bef6`, giữ lớp xem trước camera khi xoay, tiếp nối sửa khung ngắm ngang ở `ec1ba2e`; kết quả xác nhận ở các mục cập nhật bên dưới. Các lượt `2f8a9e5` và `d324c9c` là bằng chứng của bản thử trước sửa lỗi này. Android được xác nhận trên `0ef1582` sau xử lý vùng tai thỏ/thanh điều hướng. Lựa chọn chạy riêng ảnh giao diện không được dùng để ký/phát hành.
 
 - Danh mục bản dịch: đạt; mọi khóa nhãn hệ thống được gọi trong mã đều có bản dịch, đúng tham số. Có rà soát thêm các chuỗi giao diện ghi trực tiếp. Điều này chưa thay thế rà soát mọi màn hình trên điện thoại thật.
 - Android: 14/14 bài đạt, không bỏ qua: cảm biến 3, ngôn ngữ 2, cài đặt 2, dấu ảnh 7. Kiểm tra lỗi release: 0 lỗi, còn 65 cảnh báo về phiên bản thư viện, hướng cố định, tài nguyên dư và cách viết giao diện. Đã build APK release, APK preview và AAB release. Bản preview có khối chữ ký APK để cài thử.
-- iOS: build đạt; 17/17 bài chức năng và 3/3 bài giao diện đạt. Các bài giao diện dùng góc cảm biến giả lập để kiểm tra bố cục trên iPhone 16 Pro Max mô phỏng, chưa chứng minh cảm biến hay khóa xoay trên máy thật. Lượt chụp lại đạt 3/3 bài, đã xử lý hộp thoại vị trí trước khi xác nhận bố cục. Đã xem trực tiếp ảnh hai hướng ngang: lưới, cân bằng và nút điều khiển hiển thị, không bị hộp thoại che.
+- iOS bản mới: build đạt; 17/17 bài chức năng và 4/4 bài giao diện đạt trên cùng mã `398bef6`, gồm giữ nguyên UIView xem trước qua sáu lần xoay trong cùng một lần mở app, khung ngắm 4:3 và các nút ở cả hai hướng ngang. Lượt đầu gặp lỗi khởi động bộ kiểm thử giao diện; lượt chạy lại riêng giao diện trên máy mới đạt. Chưa đo được khoảng đen của hình camera thật trên iPhone.
 - Bằng chứng Android: https://github.com/datnguyenvip/datvip-cam/actions/runs/43161676741
-- Chạy lại ảnh giao diện iOS: https://github.com/datnguyenvip/datvip-cam/actions/runs/43161251110
-- Bằng chứng iOS: https://github.com/datnguyenvip/datvip-cam/actions/runs/43159800442
+- Kiểm thử giao diện iOS 4/4: https://github.com/datnguyenvip/datvip-cam/actions/runs/43171936089
+- Build và kiểm thử chức năng iOS 17/17: https://github.com/datnguyenvip/datvip-cam/actions/runs/43168960915
 
 ## Tệp chính và commit
 
@@ -45,7 +45,7 @@ PR bản nháp: https://github.com/datnguyenvip/datvip-cam/pull/3
 
 - Android: dùng Java 21, Gradle 8.13, Android SDK 36 / build-tools 36.0.0. Trong thư mục `android`, chạy `gradle testDebugUnitTest lintRelease assembleRelease assemblePreview bundleRelease`. APK preview được ký phát triển và dùng hậu tố `.kiemthu` đã có trong dự án; có thể cài song song, không đọc dữ liệu ứng dụng chính.
 - iOS: trên máy Mac có Xcode 26.3 và XcodeGen, vào `ios`, chạy `xcodegen generate`, rồi mở dự án bằng Xcode để build/ký theo tài khoản của chủ ứng dụng. Có thể chạy workflow `ios-ipa.yml` trên nhánh phát triển, giữ `appstore=false`, `upload=false` để lấy IPA chưa ký cùng kết quả kiểm thử.
-- IPA chưa ký không cài trực tiếp được trên iPhone; cần ký bằng hồ sơ hợp lệ hoặc build từ Xcode. Bản thử sửa khung ngắm có số build 67 theo bộ đếm workflow, không phải bản phát hành App Store và không ghi đè Build 162. Chưa tạo bản TestFlight.
+- IPA chưa ký không cài trực tiếp được trên iPhone; cần ký bằng hồ sơ hợp lệ hoặc build từ Xcode. Bản thử hiện tại có số build 69 theo bộ đếm workflow, không phải bản phát hành App Store và không ghi đè Build 162. Chưa tạo bản TestFlight.
 
 ## Chưa thể xác minh và điều kiện nghiệm thu
 
@@ -66,3 +66,19 @@ Lượt xác nhận: https://github.com/datnguyenvip/datvip-cam/actions/runs/431
 Kết quả: build đạt; 17/17 bài chức năng và 3/3 bài giao diện đạt. Kiểm thử kích thước khung ngắm ở cả hai hướng ngang đạt. Đã xem ảnh mô phỏng và xác nhận khung ngắm dùng hết chiều cao, giữ tỷ lệ 4:3, các nút nằm cạnh ảnh và không bị khuất.
 
 Chưa phát hành và cần chủ ứng dụng thử lại bản sửa trên iPhone thật.
+
+## Cập nhật iOS: khoảng đen lúc đổi hướng
+
+Phản hồi tiếp theo trên iPhone thật: lớp camera đen một lúc khi mới xoay, trong khi lưới và dấu ảnh vẫn hiển thị. Mã trước đó đặt khung camera trong hai nhánh giao diện dọc/ngang khác nhau. Khi đổi nhánh, SwiftUI tháo UIView xem trước cũ và tạo UIView/lớp AVCaptureVideoPreviewLayer mới, phải chờ kết nối hình xem trước trở lại.
+
+Commit `398bef6` chuyển sang một khung `AnyLayout` với khung camera ở cùng một vị trí trong cây giao diện. Chỉ thay trục sắp xếp dọc/ngang và đổi bố cục cụm nút; giữ UIView và lớp camera đang hoạt động. [Tài liệu AnyLayout của Apple](https://developer.apple.com/documentation/swiftui/anylayout) mô tả cơ chế đổi bố cục mà giữ trạng thái các view con.
+
+Bổ sung bài kiểm thử xoay 6 lần trong cùng một lần mở app: dọc → ngang trái → ngang phải → dọc, lặp lại. Bài kiểm thử kiểm tra UIView xem trước giữ cùng mã định danh và nút chụp vẫn thao tác được. Các điều khiển cảm biến giả lập và mã định danh chỉ có trong bản DEBUG dùng kiểm thử, không có trong IPA Release giao cho chủ ứng dụng.
+
+Lượt build và chức năng: https://github.com/datnguyenvip/datvip-cam/actions/runs/43168960915 — build đạt, 17/17 bài chức năng đạt. Bộ kiểm thử giao diện không khởi chạy do lỗi máy mô phỏng “Timed out while loading Accessibility”, trước khi chạy bất kỳ bài giao diện nào.
+
+Lượt chạy lại riêng giao diện trên máy mới, cùng mã nguồn ứng dụng: https://github.com/datnguyenvip/datvip-cam/actions/runs/43171936089
+
+Kết quả: 4/4 bài giao diện đạt, gồm bài giữ cùng UIView camera qua sáu lần xoay liên tiếp và kiểm tra nút chụp vẫn thao tác được. Đã xem trực tiếp ảnh hai bố cục ngang và xác nhận khung ngắm lớn 4:3 được giữ.
+
+Máy mô phỏng không có luồng camera thật nên kiểm thử này chứng minh lớp xem trước được giữ liên tục, chưa đo được thời gian đen trên iPhone. Chủ ứng dụng cần thử lại dọc/ngang trái/phải nhiều lần trên máy thật. Không sửa cơ chế lưu ảnh/video, dấu ảnh, dữ liệu hoặc mã ứng dụng; không phát hành.
