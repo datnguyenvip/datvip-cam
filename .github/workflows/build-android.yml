@@ -2,7 +2,7 @@ name: Build Android APK and AAB
 on:
   workflow_dispatch:
   push:
-    branches: [codex/datvip-cam-verified-integration]
+   branches: [feature/camera-ht-language-guides-orientation]
     paths: ["android/**", ".github/workflows/build-android.yml"]
 jobs:
   build:
