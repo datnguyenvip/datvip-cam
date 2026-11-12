@@ -24,7 +24,7 @@ on:
 
 jobs:
   appstore:
-    if: github.event_name == 'workflow_dispatch' && inputs.appstore
+    if: github.event_name == 'workflow_dispatch' && inputs.appstore && !inputs.screenshots_only
     needs: build
     uses: ./.github/workflows/ios-appstore.yml
     with:

@@ -390,7 +390,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast(Language.text(this@MainActivity, "Hãy đợi lưu video")) }, 52), one())
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(cameraHost) { view, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
@@ -875,14 +875,14 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     }
     private fun applyRotation() {
         if (!::cameraHost.isInitialized || !::frame.isInitialized) return
-        val w = cameraHost.width - cameraRoot.paddingLeft - cameraRoot.paddingRight
-        val h = cameraHost.height - cameraRoot.paddingTop - cameraRoot.paddingBottom
+        val w = cameraHost.width - cameraHost.paddingLeft - cameraHost.paddingRight
+        val h = cameraHost.height - cameraHost.paddingTop - cameraHost.paddingBottom
         if (w <= 0 || h <= 0) return
         val land = curDeg == 90 || curDeg == -90
         val rootLp = cameraRoot.layoutParams as FrameLayout.LayoutParams
         // The host stays portrait; the whole camera UI uses a rotated logical canvas.
-        val nw = if (land) cameraHost.height else cameraHost.width
-        val nh = if (land) cameraHost.width else cameraHost.height
+        val nw = if (land) h else w
+        val nh = if (land) w else h
         if (rootLp.width != nw || rootLp.height != nh) {
             rootLp.width = nw; rootLp.height = nh; cameraRoot.layoutParams = rootLp
         }
