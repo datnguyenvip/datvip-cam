@@ -1,4 +1,4 @@
-name: Build Android APK and AAB
+name: Build and sign Android APK and AAB
 
 on:
   workflow_dispatch:
@@ -8,6 +8,9 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/build-android.yml"
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -39,25 +42,83 @@ jobs:
         with:
           gradle-version: "8.13"
 
-      - name: Test and build APK and AAB
+      - name: Test and build release
         working-directory: android
-        run: gradle testDebugUnitTest lintRelease assembleRelease assemblePreview bundleRelease --stacktrace
+        run: gradle testDebugUnitTest lintRelease assembleRelease bundleRelease --stacktrace
 
-      - name: Upload APK and AAB
+      - name: Sign and verify AAB and APK
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" ]]; then
+            echo "::error::Missing Android signing secrets."
+            exit 1
+          fi
+
+          keystore_path="$RUNNER_TEMP/cameraht-upload.jks"
+          trap 'rm -f "$keystore_path"' EXIT
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storetype PKCS12 \
+            -storepass:env KEYSTORE_PASSWORD \
+            -alias "$KEY_ALIAS"
+
+          mkdir -p signed-output
+
+          jarsigner \
+            -keystore "$keystore_path" \
+            -storetype PKCS12 \
+            -storepass:env KEYSTORE_PASSWORD \
+            -keypass:env KEYSTORE_PASSWORD \
+            -signedjar signed-output/CameraHT-release-signed.aab \
+            android/app/build/outputs/bundle/release/app-release.aab \
+            "$KEY_ALIAS"
+
+          jarsigner -verify \
+            signed-output/CameraHT-release-signed.aab
+
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+
+          "$build_tools/zipalign" -f -P 16 4 \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            "$RUNNER_TEMP/cameraht-aligned.apk"
+
+          "$build_tools/apksigner" sign \
+            --ks "$keystore_path" \
+            --ks-type PKCS12 \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEYSTORE_PASSWORD \
+            --out signed-output/CameraHT-release-signed.apk \
+            "$RUNNER_TEMP/cameraht-aligned.apk"
+
+          "$build_tools/apksigner" verify \
+            --verbose --print-certs \
+            signed-output/CameraHT-release-signed.apk
+
+      - name: Upload signed APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: DatvipCam-Android-release-unsigned
+          name: CameraHT-Android-SIGNED
           path: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/apk/preview/*.apk
-            android/app/build/outputs/bundle/release/*.aab
+            signed-output/CameraHT-release-signed.aab
+            signed-output/CameraHT-release-signed.apk
           if-no-files-found: error
 
       - name: Upload validation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DatvipCam-Android-validation
+          name: CameraHT-Android-validation
           path: |
             android/app/build/reports
             android/app/build/test-results
