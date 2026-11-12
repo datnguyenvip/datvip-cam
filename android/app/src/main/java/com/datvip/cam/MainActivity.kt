@@ -393,6 +393,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(cameraHost) { view, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            view.post { applyRotation() }
             insets
         }
         setContentView(cameraHost)
