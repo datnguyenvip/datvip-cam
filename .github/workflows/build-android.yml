@@ -1,32 +1,49 @@
 name: Build Android APK and AAB
+
 on:
   workflow_dispatch:
   push:
-   branches: [feature/camera-ht-language-guides-orientation]
-    paths: ["android/**", ".github/workflows/build-android.yml"]
+    branches:
+      - feature/camera-ht-language-guides-orientation
+    paths:
+      - "android/**"
+      - ".github/workflows/build-android.yml"
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Check interface translations
         run: python3 scripts/check-localization.py
-      - uses: actions/setup-java@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@v3
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools'
+          packages: "platform-tools"
+
       - name: Install Android 36 SDK
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.13'
-      - name: Test and build release APK and AAB
+          gradle-version: "8.13"
+
+      - name: Test and build APK and AAB
         working-directory: android
         run: gradle testDebugUnitTest lintRelease assembleRelease assemblePreview bundleRelease --stacktrace
-      - name: Upload unsigned release outputs for local signing
+
+      - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
           name: DatvipCam-Android-release-unsigned
@@ -35,7 +52,8 @@ jobs:
             android/app/build/outputs/apk/preview/*.apk
             android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
-      - name: Upload Android validation evidence
+
+      - name: Upload validation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
