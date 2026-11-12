@@ -141,12 +141,16 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var lastRot = Surface.ROTATION_0
     private val orientationFilter = CameraOrientation()
     private lateinit var cameraRoot: LinearLayout
+    private lateinit var cameraControls: LinearLayout
+    private lateinit var cameraModes: LinearLayout
+    private lateinit var cameraButtons: GridLayout
     private lateinit var cameraHost: FrameLayout
     private lateinit var guides: CompositionGuidesView
     private val sp by lazy { getSharedPreferences("dc", Context.MODE_PRIVATE) }
     private val ex = Executors.newSingleThreadExecutor()
     private val ui = Handler(Looper.getMainLooper())
     private var provider: ProcessCameraProvider? = null
+    private var cameraStarting = false
     private var imageCapture: ImageCapture? = null
     private var front = false
     private var loc: Location? = null
@@ -312,16 +316,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         frame.addView(layer, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         stampOverlay = StampOverlayView(this)
         layer.addView(stampOverlay, FrameLayout.LayoutParams(-1, -1))
-        stage.addOnLayoutChangeListener { _, l0, t0, r0, b0, _, _, _, _ ->
-            val sw = r0 - l0; val sh = b0 - t0
-            if (sw > 0 && sh > 0) {
-                val landscape = curDeg == 90 || curDeg == -90
-                val aspect = if (landscape) 4f / 3f else 3f / 4f
-                val fw = minOf(sw, (sh * aspect).toInt()); val fh = (fw / aspect).toInt()
-                val lp = frame.layoutParams as FrameLayout.LayoutParams
-                if (lp.width != fw || lp.height != fh) { lp.width = fw; lp.height = fh; frame.layoutParams = lp; frame.post { applyRotation() } }
-            }
-        }
+        // The preview stays attached. Size its frame and texture before drawing,
+        // rather than posting a second resize after an orientation change.
+        stage.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutPreview() }
         gpsTv = TextView(this).apply {
             setTextColor(Color.WHITE); textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setPadding(dp(12), dp(6), dp(12), dp(6))
             background = GradientDrawable().apply { cornerRadius = dp(16).toFloat() }
@@ -356,7 +353,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             setOnClickListener { setVideoMode(true) }
         }
         modes.addView(photoModeButton); modes.addView(videoModeButton)
-        root.addView(modes)
+        cameraModes = modes
+        cameraControls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(22)) }
+        cameraControls.addView(modes, LinearLayout.LayoutParams(-1, -2))
 
         fun chip(t: String, f: () -> Unit) = TextView(this).apply {
             text = t; textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
@@ -364,8 +363,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             setOnClickListener { f() }
         }
         fun cell(v: View, size: Int) = FrameLayout(this).apply { addView(v, FrameLayout.LayoutParams(dp(size), dp(size), Gravity.CENTER)) }
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, dp(22)) }
-        val one = { LinearLayout.LayoutParams(0, dp(80), 1f) }
+        val bar = GridLayout(this).apply { columnCount = 4; rowCount = 1; setPadding(0, dp(14), 0, 0) }
+        cameraButtons = bar
+        val one = { GridLayout.LayoutParams().apply { width = 0; height = dp(80); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) } }
         shutter = View(this).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFFF6B1A.toInt()); setStroke(dp(5), Color.WHITE) }
             setOnClickListener {
@@ -388,7 +388,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         }
         bar.addView(cell(flipCamera, 52), one())
         bar.addView(cell(chip("⚙") { if (!videoBusy()) settings() else toast(Language.text(this@MainActivity, "Hãy đợi lưu video")) }, 52), one())
-        root.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        cameraControls.addView(bar, LinearLayout.LayoutParams(-1, -2))
+        root.addView(cameraControls, LinearLayout.LayoutParams(-1, -2))
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(cameraHost) { view, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
@@ -406,8 +407,22 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     /* ---------- Camera ---------- */
     private fun startCamera() {
+        // onResume and the permission callback can both arrive during startup.
+        // Only one may bind; an extra unbindAll() interrupts the live preview.
+        if (provider != null || cameraStarting || destroying) return
+        cameraStarting = true
         val f = ProcessCameraProvider.getInstance(this)
-        f.addListener({ provider = f.get(); pv.post { bind() } }, ContextCompat.getMainExecutor(this))
+        f.addListener({
+            cameraStarting = false
+            if (!destroying && !isFinishing) {
+                try {
+                    provider = f.get()
+                    pv.post { if (!destroying && !isFinishing) bind() }
+                } catch (e: Exception) {
+                    toast(Language.text(this@MainActivity, "Không mở được camera: {0}", e.message))
+                }
+            }
+        }, ContextCompat.getMainExecutor(this))
     }
     private fun bind() {
         val p = provider ?: return
@@ -888,18 +903,60 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             rootLp.width = nw; rootLp.height = nh; cameraRoot.layoutParams = rootLp
         }
         cameraRoot.rotation = curDeg.toFloat()
-        val fw = frame.width; val fh = frame.height
-        if (fw > 0 && fh > 0) {
-            val previewLp = pv.layoutParams as FrameLayout.LayoutParams
-            val pw = if (land) fh else fw; val ph = if (land) fw else fh
-            if (previewLp.width != pw || previewLp.height != ph) {
-                previewLp.width = pw; previewLp.height = ph; pv.layoutParams = previewLp
+        val horizontal = if (land) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        if (cameraRoot.orientation != horizontal) {
+            cameraRoot.orientation = horizontal
+            stage.layoutParams = if (land) LinearLayout.LayoutParams(0, -1, 1f)
+                else LinearLayout.LayoutParams(-1, 0, 1f)
+            cameraControls.layoutParams = if (land) LinearLayout.LayoutParams(dp(168), -1)
+                else LinearLayout.LayoutParams(-1, -2)
+            cameraControls.gravity = Gravity.CENTER
+            cameraControls.setPadding(0, dp(if (land) 4 else 0), 0, dp(if (land) 4 else 22))
+            cameraModes.setPadding(0, dp(if (land) 0 else 6), 0, 0)
+            for (button in listOf(photoModeButton, videoModeButton)) {
+                button.setPadding(dp(if (land) 12 else 24), dp(10), dp(if (land) 12 else 24), dp(10))
             }
-            pv.rotation = -curDeg.toFloat()
+            cameraButtons.setPadding(0, dp(if (land) 0 else 14), 0, 0)
+            // Two rows in the side rail fit short landscape windows as well.
+            for (i in 0 until cameraButtons.childCount) {
+                cameraButtons.getChildAt(i).layoutParams = GridLayout.LayoutParams()
+            }
+            cameraButtons.columnCount = if (land) 2 else 4
+            cameraButtons.rowCount = if (land) 2 else 1
+            for (i in 0 until cameraButtons.childCount) {
+                cameraButtons.getChildAt(i).layoutParams = GridLayout.LayoutParams().apply {
+                    width = 0; height = dp(80)
+                    columnSpec = GridLayout.spec(i % cameraButtons.columnCount, 1f)
+                    rowSpec = GridLayout.spec(i / cameraButtons.columnCount)
+                }
+            }
         }
+        // Let the stage finish measuring before changing texture dimensions.
+        // Using its old portrait bounds here would resize the texture twice.
+        pv.rotation = -curDeg.toFloat()
         guides.visibility = if (sp.getBoolean("compositionGuides", false)) View.VISIBLE else View.GONE
-        pxUnit = minOf(fw, fh) / 100f
         refresh()
+    }
+
+    private fun layoutPreview() {
+        if (stage.width <= 0 || stage.height <= 0) return
+        val land = curDeg == 90 || curDeg == -90
+        val size = CameraPreviewLayout.fit(stage.width, stage.height, land)
+        val frameLp = frame.layoutParams as FrameLayout.LayoutParams
+        if (frameLp.width != size.width || frameLp.height != size.height) {
+            frameLp.width = size.width; frameLp.height = size.height
+            frame.layoutParams = frameLp
+        }
+        // Keep the texture in display coordinates. The parent rotates the UI;
+        // this inverse rotation leaves CameraX's preview upright on the display.
+        val pw = if (land) size.height else size.width
+        val ph = if (land) size.width else size.height
+        val previewLp = pv.layoutParams as FrameLayout.LayoutParams
+        if (previewLp.width != pw || previewLp.height != ph) {
+            previewLp.width = pw; previewLp.height = ph; pv.layoutParams = previewLp
+        }
+        pv.rotation = -curDeg.toFloat()
+        pxUnit = minOf(size.width, size.height) / 100f
     }
     private fun quickNote() {
         if (videoBusy()) { toast(Language.text(this@MainActivity, "Hãy đợi lưu video")); return }

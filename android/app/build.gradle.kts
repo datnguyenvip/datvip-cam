@@ -10,8 +10,8 @@ android {
         applicationId = "com.datvip.cam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.1.0"
+        versionCode = 8
+        versionName = "1.1.1"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
