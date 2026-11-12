@@ -19,7 +19,7 @@ Trạng thái: đã triển khai và đạt kiểm thử tự động; cần th�
 
 ## Kiểm thử tự động
 
-Mã iOS được kiểm thử đầy đủ: `2f8a9e5`; mã iOS không đổi trong các commit tiếp theo. Commit `d324c9c` sửa xử lý hộp thoại trong kiểm thử giao diện và thêm lượt chạy riêng ảnh bằng chứng. Android được xác nhận lại trên `0ef1582` sau xử lý vùng tai thỏ/thanh điều hướng. Lựa chọn chạy riêng ảnh giao diện không được dùng để ký/phát hành.
+Mã iOS mới: `ec1ba2e`, sửa khung ngắm thu nhỏ khi xoay ngang; kết quả xác nhận ở mục cập nhật bên dưới. Các lượt `2f8a9e5` và `d324c9c` là bằng chứng của bản thử trước sửa lỗi này. Android được xác nhận trên `0ef1582` sau xử lý vùng tai thỏ/thanh điều hướng. Lựa chọn chạy riêng ảnh giao diện không được dùng để ký/phát hành.
 
 - Danh mục bản dịch: đạt; mọi khóa nhãn hệ thống được gọi trong mã đều có bản dịch, đúng tham số. Có rà soát thêm các chuỗi giao diện ghi trực tiếp. Điều này chưa thay thế rà soát mọi màn hình trên điện thoại thật.
 - Android: 14/14 bài đạt, không bỏ qua: cảm biến 3, ngôn ngữ 2, cài đặt 2, dấu ảnh 7. Kiểm tra lỗi release: 0 lỗi, còn 65 cảnh báo về phiên bản thư viện, hướng cố định, tài nguyên dư và cách viết giao diện. Đã build APK release, APK preview và AAB release. Bản preview có khối chữ ký APK để cài thử.
@@ -45,10 +45,24 @@ PR bản nháp: https://github.com/datnguyenvip/datvip-cam/pull/3
 
 - Android: dùng Java 21, Gradle 8.13, Android SDK 36 / build-tools 36.0.0. Trong thư mục `android`, chạy `gradle testDebugUnitTest lintRelease assembleRelease assemblePreview bundleRelease`. APK preview được ký phát triển và dùng hậu tố `.kiemthu` đã có trong dự án; có thể cài song song, không đọc dữ liệu ứng dụng chính.
 - iOS: trên máy Mac có Xcode 26.3 và XcodeGen, vào `ios`, chạy `xcodegen generate`, rồi mở dự án bằng Xcode để build/ký theo tài khoản của chủ ứng dụng. Có thể chạy workflow `ios-ipa.yml` trên nhánh phát triển, giữ `appstore=false`, `upload=false` để lấy IPA chưa ký cùng kết quả kiểm thử.
-- IPA chưa ký không cài trực tiếp được trên iPhone; cần ký bằng hồ sơ hợp lệ hoặc build từ Xcode. Bản thử có số build 66 theo bộ đếm workflow, không phải bản phát hành App Store và không ghi đè Build 162. Chưa tạo bản TestFlight.
+- IPA chưa ký không cài trực tiếp được trên iPhone; cần ký bằng hồ sơ hợp lệ hoặc build từ Xcode. Bản thử sửa khung ngắm có số build 67 theo bộ đếm workflow, không phải bản phát hành App Store và không ghi đè Build 162. Chưa tạo bản TestFlight.
 
 ## Chưa thể xác minh và điều kiện nghiệm thu
 
-Chưa thử camera, khóa xoay, độ chính xác cảm biến, hướng ảnh/video, micro và chuyển hướng giữa lúc quay trên máy thật. Chưa thử cập nhật đè bằng chữ ký phát hành lên dữ liệu thực. Chưa xác minh metadata hiện tại trên App Store/Google Play. Chưa coi ba nhóm tính năng hoàn thành nghiệm thu.
+Chưa kiểm thử đầy đủ camera, khóa xoay, độ chính xác cảm biến, hướng ảnh/video, micro và chuyển hướng giữa lúc quay trên máy thật. Chưa thử cập nhật đè bằng chữ ký phát hành lên dữ liệu thực. Chưa xác minh metadata hiện tại trên App Store/Google Play. Chưa coi ba nhóm tính năng hoàn thành nghiệm thu.
 
 Làm theo `DEVICE-TESTS.md` trên cả hai điện thoại. Chỉ phát hành sau khi có kết quả và chủ ứng dụng đồng ý.
+
+## Cập nhật iOS: khung ngắm ngang bị thu nhỏ
+
+Phản hồi máy thật cho thấy khung ngắm ngang nhỏ và dư nhiều vùng đen, trong khi ảnh lưu vẫn có tỷ lệ 4:3. Nguyên nhân: bố cục dùng một cột cho cả hai hướng, nên hàng nút và thanh chọn Ảnh/Video chiếm chiều cao của khung ngắm khi cầm ngang.
+
+Commit `ec1ba2e` dùng bố cục hai cột ở hướng ngang: khung ngắm và cụm nút bên cạnh. Khung 4:3 có thể dùng hết chiều cao vùng camera trên iPhone 16 Pro Max thay vì bị trừ chiều cao thanh nút. Hướng dọc giữ bố cục cũ. Camera chỉ khởi động ở vòng đời màn hình, không cấu hình lại chỉ vì đổi bố cục ngang/dọc.
+
+Đã bổ sung kiểm thử kích thước khung ngắm trên cả hai hướng ngang (ngoài kiểm tra các nút không bị khuất), gồm tỷ lệ 4:3 và chiều cao hiển thị. Không sửa bộ lưu ảnh/video, bộ vẽ dấu ảnh hoặc dữ liệu người dùng.
+
+Lượt xác nhận: https://github.com/datnguyenvip/datvip-cam/actions/runs/43164301998
+
+Kết quả: build đạt; 17/17 bài chức năng và 3/3 bài giao diện đạt. Kiểm thử kích thước khung ngắm ở cả hai hướng ngang đạt. Đã xem ảnh mô phỏng và xác nhận khung ngắm dùng hết chiều cao, giữ tỷ lệ 4:3, các nút nằm cạnh ảnh và không bị khuất.
+
+Chưa phát hành và cần chủ ứng dụng thử lại bản sửa trên iPhone thật.
