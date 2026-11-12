@@ -55,7 +55,7 @@ struct ContentView: View {
                 .rotationEffect(.degrees(angle))
                 .frame(width: g.size.width, height: g.size.height)
         }
-        .onAppear { motion.start() }
+        .onAppear { motion.start(); m.previewAspect = 3.0 / 4.0; m.start() }
         .onDisappear { motion.stop() }
         .onChange(of: motion.angle) { _ in m.devOrient = motion.orientation }
         .onChange(of: scenePhase) { phase in
@@ -64,7 +64,59 @@ struct ContentView: View {
     }
 
     private var cameraBody: some View {
-        VStack(spacing: 0) {
+        Group {
+            if land {
+                HStack(spacing: 0) {
+                    cameraStage
+                    landscapeControls
+                }
+            } else {
+                VStack(spacing: 0) {
+                    cameraStage
+                    modeBar
+                    HStack {
+                        galleryButton
+                        captureButton.frame(maxWidth: .infinity)
+                        flipButton
+                        settingsButton
+                    }
+                    .padding(.vertical, 14).background(controlBackground)
+                }
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
+        .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
+        .sheet(isPresented: $showNote) { NoteView() }
+        .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
+    }
+
+    private var controlBackground: Color { Color(red: 0.04, green: 0.08, blue: 0.10) }
+    private var galleryButton: some View {
+        chip("photo.on.rectangle") { if !m.isRecording { showGallery = true } }
+    }
+    private var flipButton: some View {
+        chip("arrow.triangle.2.circlepath.camera") { if !m.isRecording { m.flip() } }
+    }
+    private var settingsButton: some View { chip("gearshape") { showSettings = true } }
+    private var captureButton: some View {
+        Button { if m.videoMode { m.toggleRecord() } else { m.shoot() } } label: { shutterLabel }
+            .accessibilityIdentifier("camera-shutter")
+    }
+    private var landscapeControls: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 0) { galleryButton; settingsButton }
+            Spacer(minLength: 0)
+            captureButton
+            Spacer(minLength: 0)
+            flipButton.frame(height: 48)
+            modeBar
+        }
+        .padding(.horizontal, 8).padding(.vertical, 10)
+        .frame(width: 120)
+        .background(controlBackground)
+    }
+
+    private var cameraStage: some View {
             GeometryReader { g in
                 let aspect: CGFloat = land ? 4.0 / 3.0 : 3.0 / 4.0
                 let fw = min(g.size.width, g.size.height * aspect)
@@ -80,6 +132,8 @@ struct ContentView: View {
                         TimelineView(.periodic(from: .now, by: 1)) { tl in overlay(tl.date, fw, fh) }
                     }
                     .frame(width: fw, height: fh).clipped()
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("camera-viewport")
                 }
                 .frame(width: g.size.width, height: g.size.height)
                 .overlay(alignment: .topLeading) {
@@ -101,25 +155,11 @@ struct ContentView: View {
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }
                     }.padding(10)
                 }
-                .onAppear { m.previewAspect = 3.0 / 4.0; m.start() }
             }
-            modeBar
-            HStack {
-                chip("photo.on.rectangle") { if !m.isRecording { showGallery = true } }
-                Button { if m.videoMode { m.toggleRecord() } else { m.shoot() } } label: { shutterLabel }.frame(maxWidth: .infinity)
-                chip("arrow.triangle.2.circlepath.camera") { if !m.isRecording { m.flip() } }
-                chip("gearshape") { showSettings = true }
-            }
-            .padding(.vertical, 14).background(Color(red: 0.04, green: 0.08, blue: 0.10))
-        }
-        .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
-        .sheet(isPresented: $showNote) { NoteView() }
-        .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
     }
 
     private var modeBar: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: land ? 12 : 28) {
             Button(AppLanguage.text("Ảnh")) { m.setVideoMode(false) }.foregroundColor(m.videoMode ? .gray : yellow)
             Button("Video") { m.setVideoMode(true) }.foregroundColor(m.videoMode ? yellow : .gray)
         }

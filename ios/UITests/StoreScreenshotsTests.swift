@@ -61,7 +61,13 @@ final class StoreScreenshotsTests: XCTestCase {
             let settings = app.buttons["gearshape"]
             XCTAssertTrue(settings.waitForExistence(timeout: 30))
             let bounds = app.frame
-            for name in ["gearshape", "photo.on.rectangle", "arrow.triangle.2.circlepath.camera"] {
+            let viewport = app.otherElements["camera-viewport"]
+            XCTAssertTrue(viewport.waitForExistence(timeout: 10))
+            // In a portrait-locked host, landscape preview height maps to physical width.
+            // This fails for the old bottom-toolbar layout that shrank the viewfinder.
+            XCTAssertGreaterThanOrEqual(viewport.frame.width, bounds.width * 0.9)
+            XCTAssertEqual(viewport.frame.height / viewport.frame.width, 4.0 / 3.0, accuracy: 0.03)
+            for name in ["gearshape", "photo.on.rectangle", "arrow.triangle.2.circlepath.camera", "camera-shutter"] {
                 let button = app.buttons[name]
                 XCTAssertTrue(button.isHittable)
                 XCTAssertTrue(bounds.contains(button.frame), "Control clipped at sensor angle \(angle): \(name)")
