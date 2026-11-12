@@ -9,9 +9,9 @@ class CameraOrientationTest {
         var time = 0L
         fun feed(x: Double, y: Double) { repeat(40) { time += 50; filter.update(x, y, time) } }
         feed(0.0, 1.0); assertEquals(0, filter.angle)
-        feed(-1.0, 0.0); assertEquals(90, filter.angle)
+        feed(1.0, 0.0); assertEquals(90, filter.angle)
         assertEquals(0f, filter.tilt!!, .1f)
-        feed(1.0, 0.0); assertEquals(-90, filter.angle)
+        feed(-1.0, 0.0); assertEquals(-90, filter.angle)
         feed(0.0, 1.0); assertEquals(0, filter.angle)
     }
     @Test fun boundaryJitterAndFlatPhoneDoNotRotate() {
@@ -23,10 +23,10 @@ class CameraOrientationTest {
     }
     @Test fun briefTurnDoesNotCommitOrientation() {
         val filter = CameraOrientation()
-        filter.update(-1.0, 0.0, 10000)
-        filter.update(-1.0, 0.0, 10100)
+        filter.update(1.0, 0.0, 10000)
+        filter.update(1.0, 0.0, 10100)
         assertEquals(0, filter.angle)
-        filter.update(-1.0, 0.0, 10300)
+        filter.update(1.0, 0.0, 10300)
         assertEquals(90, filter.angle)
     }
 }

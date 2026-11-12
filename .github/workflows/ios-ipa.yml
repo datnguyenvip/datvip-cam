@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check interface translations
+        run: python3 scripts/check-localization.py
 
       - name: Select Xcode
         run: |

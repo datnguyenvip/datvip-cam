@@ -18,7 +18,7 @@ class CameraOrientation {
         if (!initialized) { x = rawX; y = rawY; initialized = true }
         else { x += .18 * (rawX - x); y += .18 * (rawY - y) }
         if (hypot(x, y) <= .45) { tilt = null; candidate = angle; candidateSince = timeMs; return }
-        val measured = Math.toDegrees(atan2(-x, y))
+        val measured = Math.toDegrees(atan2(x, y))
         val nearest = (measured / 90).roundToInt() * 90
         val normalized = if (nearest == -180) 180 else nearest
         if (abs(measured - nearest) <= 30) {

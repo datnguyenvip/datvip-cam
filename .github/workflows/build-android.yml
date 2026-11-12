@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check interface translations
+        run: python3 scripts/check-localization.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

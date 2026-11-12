@@ -79,7 +79,7 @@ struct CompositionGuides: View {
                         Circle().frame(width: 7, height: 7)
                         Capsule().frame(width: 35, height: 3)
                     }.foregroundColor(abs(tilt) <= 2 ? .green : .yellow)
-                        .rotationEffect(.degrees(-tilt))
+                        .rotationEffect(.degrees(tilt))
                 }.position(x: g.size.width / 2, y: g.size.height / 2)
             }
         }.allowsHitTesting(false).accessibilityHidden(true)

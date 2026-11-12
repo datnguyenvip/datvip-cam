@@ -25,7 +25,7 @@ class CompositionGuidesView(context: Context) : View(context) {
         canvas.save(); canvas.translate(w / 2, h / 2)
         paint.color = 0x99FFFFFF.toInt(); paint.strokeWidth = d
         canvas.drawLine(-45*d, 0f, 45*d, 0f, paint)
-        canvas.rotate(-value)
+        canvas.rotate(value)
         paint.color = if (abs(value) <= 2) Color.GREEN else Color.YELLOW
         paint.strokeWidth = 3*d
         canvas.drawLine(-42*d, 0f, -7*d, 0f, paint)
