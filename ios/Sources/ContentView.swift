@@ -9,7 +9,17 @@ final class PreviewUIView: UIView {
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     func makeUIView(context: Context) -> PreviewUIView {
-        let v = PreviewUIView(); v.previewLayer.session = session; v.previewLayer.videoGravity = .resizeAspectFill; return v
+        let v = PreviewUIView()
+        v.previewLayer.session = session
+        v.previewLayer.videoGravity = .resizeAspectFill
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["CAMERA_HT_UI_TESTING"] == "1" {
+            v.isAccessibilityElement = true
+            v.accessibilityIdentifier = "camera-live-preview"
+            v.accessibilityValue = UUID().uuidString
+        }
+        #endif
+        return v
     }
     func updateUIView(_ v: PreviewUIView, context: Context) {}
 }
@@ -55,6 +65,16 @@ struct ContentView: View {
                 .rotationEffect(.degrees(angle))
                 .frame(width: g.size.width, height: g.size.height)
         }
+        .overlay(alignment: .bottomTrailing) {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["CAMERA_HT_TEST_ROTATION_SEQUENCE"] == "1" {
+                Button("Rotate test sensor") { motion.advanceTestOrientation() }
+                    .accessibilityIdentifier("camera-test-rotate")
+                    .accessibilityValue(String(Int(motion.angle)))
+                    .font(.caption).frame(width: 60, height: 44)
+            }
+            #endif
+        }
         .onAppear { motion.start(); m.previewAspect = 3.0 / 4.0; m.start() }
         .onDisappear { motion.stop() }
         .onChange(of: motion.angle) { _ in m.devOrient = motion.orientation }
@@ -64,15 +84,24 @@ struct ContentView: View {
     }
 
     private var cameraBody: some View {
+        // Keep the camera at the same structural identity when the axis changes.
+        let layout = land ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+        return layout {
+            cameraStage
+            cameraControls
+        }
+        .background(Color.black.ignoresSafeArea())
+        .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
+        .sheet(isPresented: $showNote) { NoteView() }
+        .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
+    }
+
+    private var cameraControls: some View {
         Group {
             if land {
-                HStack(spacing: 0) {
-                    cameraStage
-                    landscapeControls
-                }
+                landscapeControls
             } else {
                 VStack(spacing: 0) {
-                    cameraStage
                     modeBar
                     HStack {
                         galleryButton
@@ -84,10 +113,6 @@ struct ContentView: View {
                 }
             }
         }
-        .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings) { SettingsView(languageLocked: m.isRecording) }
-        .sheet(isPresented: $showNote) { NoteView() }
-        .fullScreenCover(isPresented: $showGallery) { GalleryView(model: m) }
     }
 
     private var controlBackground: Color { Color(red: 0.04, green: 0.08, blue: 0.10) }

@@ -3,6 +3,22 @@ import XCTest
 final class StoreScreenshotsTests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
 
+    private func dismissPermissionAlerts() {
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for _ in 0..<4 {
+            let alert = system.alerts.firstMatch
+            if !alert.waitForExistence(timeout: 2) { break }
+            let labels = ["Allow While Using App", "Allow Once", "OK", "Don’t Allow", "Don't Allow"]
+            if let label = labels.first(where: { alert.buttons[$0].exists }) {
+                alert.buttons[label].tap()
+            } else {
+                XCTFail("Unexpected permission alert: \(alert.label)")
+                return
+            }
+        }
+        XCTAssertFalse(system.alerts.firstMatch.exists)
+    }
+
     private func capture(_ language: String) {
         addUIInterruptionMonitor(withDescription: "Optional system permissions") { alert in
             let deny = alert.buttons["Don't Allow"]
@@ -45,19 +61,7 @@ final class StoreScreenshotsTests: XCTestCase {
             app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = angle
             app.launchArguments = ["-interfaceLanguage", "en", "-compositionGuides", "YES"]
             app.launch()
-            let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-            for _ in 0..<4 {
-                let alert = system.alerts.firstMatch
-                if !alert.waitForExistence(timeout: 2) { break }
-                let labels = ["Allow While Using App", "Allow Once", "OK", "Don’t Allow", "Don't Allow"]
-                if let label = labels.first(where: { alert.buttons[$0].exists }) {
-                    alert.buttons[label].tap()
-                } else {
-                    XCTFail("Unexpected permission alert: \(alert.label)")
-                    return
-                }
-            }
-            XCTAssertFalse(system.alerts.firstMatch.exists)
+            dismissPermissionAlerts()
             let settings = app.buttons["gearshape"]
             XCTAssertTrue(settings.waitForExistence(timeout: 30))
             let bounds = app.frame
@@ -77,6 +81,30 @@ final class StoreScreenshotsTests: XCTestCase {
             add(image)
             app.terminate()
         }
+    }
+    func testPreviewSurvivesRepeatedSensorRotation() {
+        let app = XCUIApplication()
+        app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
+        app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = "0"
+        app.launchEnvironment["CAMERA_HT_TEST_ROTATION_SEQUENCE"] = "1"
+        app.launchArguments = ["-interfaceLanguage", "en"]
+        app.launch()
+        dismissPermissionAlerts()
+        let preview = app.descendants(matching: .any).matching(identifier: "camera-live-preview").firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 30))
+        let originalID = preview.value as? String
+        XCTAssertNotNil(originalID)
+        let rotate = app.buttons["camera-test-rotate"]
+        for angle in [90, -90, 0, 90, -90, 0] {
+            rotate.tap()
+            expectation(for: NSPredicate(format: "value == %@", String(angle)), evaluatedWith: rotate)
+            waitForExpectations(timeout: 10)
+            let current = app.descendants(matching: .any).matching(identifier: "camera-live-preview").firstMatch
+            XCTAssertTrue(current.exists)
+            XCTAssertEqual(current.value as? String, originalID, "Preview recreated after turning to \(angle)")
+            XCTAssertTrue(app.buttons["camera-shutter"].isHittable)
+        }
+        app.terminate()
     }
     func testVietnameseSettingsAndStampControls() { capture("vi") }
     func testEnglishSettingsAndStampControls() { capture("en") }

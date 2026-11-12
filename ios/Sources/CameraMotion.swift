@@ -52,6 +52,14 @@ final class CameraMotion: ObservableObject {
             self.tilt = self.filter.tilt
         }
     }
+    #if DEBUG
+    func advanceTestOrientation() {
+        guard ProcessInfo.processInfo.environment["CAMERA_HT_UI_TESTING"] == "1",
+              ProcessInfo.processInfo.environment["CAMERA_HT_TEST_ROTATION_SEQUENCE"] == "1" else { return }
+        angle = angle == 0 ? 90 : angle == 90 ? -90 : 0
+        tilt = 0
+    }
+    #endif
     func stop() { manager.stopAccelerometerUpdates() }
     deinit { manager.stopAccelerometerUpdates() }
     var orientation: UIDeviceOrientation {
