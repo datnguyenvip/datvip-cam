@@ -1,0 +1,37 @@
+name: Level crosshair Android validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check translations
+        run: python3 scripts/check-localization.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test, lint and build isolated test APK
+        working-directory: android
+        run: gradle testDebugUnitTest lintPreview assemblePreview --console=plain --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Level-crosshair-Android-evidence
+          path: |
+            android/app/build/reports
+            android/app/build/test-results
+            android/app/build/outputs/apk/preview/*.apk
