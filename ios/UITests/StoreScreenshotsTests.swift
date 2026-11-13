@@ -14,7 +14,7 @@ final class StoreScreenshotsTests: XCTestCase {
             app.launch()
             dismissPermissionAlerts()
             let button = app.buttons["level-crosshair"]
-            XCTAssertTrue(button.waitForExistence(timeout: 20))
+            XCTAssertTrue(button.waitForExistence(timeout: 20), app.debugDescription)
             XCTAssertTrue(button.isHittable)
             XCTAssertEqual(button.label, language == "vi" ? "Thước cân bằng" : "Level Crosshair")
             func waitForSelected(_ selected: Bool) {

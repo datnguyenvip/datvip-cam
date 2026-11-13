@@ -201,6 +201,7 @@ struct ContentView: View {
                         }
                             .buttonStyle(.plain)
                             .accessibilityElement(children: .ignore)
+                            .accessibilityAddTraits(.isButton)
                             .accessibilityLabel(AppLanguage.text("Thước cân bằng"))
                             .accessibilityValue(levelEnabled ? AppLanguage.text("Bật") : AppLanguage.text("Tắt"))
                             .accessibilityAddTraits(levelEnabled ? .isSelected : [])
