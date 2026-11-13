@@ -234,6 +234,7 @@ class StampSettingsScreen(
             val camera = section(Language.text(context, "Chụp ảnh"))
             toggle(camera, "compositionGuides", Language.text(context, "Căn chỉnh khung hình"), fallback = false)
             camera.addView(text(Language.text(context, "Bật lưới 3×3 và cân bằng. Chỉ hiển thị trên khung ngắm, không lưu vào ảnh/video.")))
+            camera.addView(text(Language.text(context, "Thước cân bằng: bật bằng nút chữ thập trên camera; lưu đường chuẩn và góc vào ảnh, không lưu vào video. Chỉ hỗ trợ kiểm tra sơ bộ; lưu ý sai lệch phối cảnh, không thay thế thiết bị trắc địa.")))
             val appearance = section(Language.text(context, "Tùy chỉnh khung và nền trong suốt"))
             val size = slider(appearance, "stampDisplaySize", Language.text(context, "Cỡ dấu"), 50, 120, .75f)
             val row = LinearLayout(context)

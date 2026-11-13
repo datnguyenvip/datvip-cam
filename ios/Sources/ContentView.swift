@@ -334,6 +334,8 @@ struct SettingsView: View {
                     Toggle(AppLanguage.text("Tiếng chụp ảnh"), isOn: $shutterSound)
                     Toggle(AppLanguage.text("Căn chỉnh khung hình"), isOn: $guides)
                         .accessibilityIdentifier("composition-guides")
+                    Text(AppLanguage.text("Thước cân bằng: bật bằng nút chữ thập trên camera; lưu đường chuẩn và góc vào ảnh, không lưu vào video. Chỉ hỗ trợ kiểm tra sơ bộ; lưu ý sai lệch phối cảnh, không thay thế thiết bị trắc địa."))
+                        .font(.caption).foregroundColor(.secondary)
                     Text(AppLanguage.text("Bật lưới 3×3 và cân bằng. Chỉ hiển thị trên khung ngắm, không lưu vào ảnh/video."))
                         .font(.caption).foregroundColor(.secondary)
                 }

@@ -256,5 +256,6 @@
   "Thước cân bằng": "Level Crosshair",
   "Chưa xác định được phương chuẩn": "Level unavailable. Hold the phone upright and steady.",
   "Bật": "On",
-  "Tắt": "Off"
+  "Tắt": "Off",
+  "Thước cân bằng: bật bằng nút chữ thập trên camera; lưu đường chuẩn và góc vào ảnh, không lưu vào video. Chỉ hỗ trợ kiểm tra sơ bộ; lưu ý sai lệch phối cảnh, không thay thế thiết bị trắc địa.": "Level Crosshair: use the crosshair button on the camera. Reference lines and the angle are saved in photos, not videos. For preliminary checks only; account for perspective distortion. Does not replace surveying instruments."
 }
