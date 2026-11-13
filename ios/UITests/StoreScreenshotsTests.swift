@@ -8,18 +8,27 @@ final class StoreScreenshotsTests: XCTestCase {
             let app = XCUIApplication()
             app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
             app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = angle
-            app.launchArguments = ["-interfaceLanguage", language, "-levelCrosshair", "NO"]
+            // A launch argument would override UserDefaults even after tapping,
+            // preventing AppStorage from exercising its real persisted value.
+            app.launchArguments = ["-interfaceLanguage", language]
             app.launch()
             dismissPermissionAlerts()
             let button = app.buttons["level-crosshair"]
             XCTAssertTrue(button.waitForExistence(timeout: 20))
             XCTAssertTrue(button.isHittable)
             XCTAssertEqual(button.label, language == "vi" ? "Thước cân bằng" : "Level Crosshair")
+            let on = language == "vi" ? "Bật" : "On"
+            let off = language == "vi" ? "Tắt" : "Off"
+            func waitForValue(_ value: String) {
+                let condition = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)
+                XCTAssertEqual(XCTWaiter.wait(for: [condition], timeout: 3), .completed)
+            }
+            if button.value as? String == on { button.tap(); waitForValue(off) }
             for _ in 0..<3 {
                 button.tap()
-                XCTAssertEqual(button.value as? String, language == "vi" ? "Bật" : "On")
+                waitForValue(on)
                 button.tap()
-                XCTAssertEqual(button.value as? String, language == "vi" ? "Tắt" : "Off")
+                waitForValue(off)
             }
             button.tap()
             let image = XCTAttachment(screenshot: app.screenshot())
@@ -29,7 +38,7 @@ final class StoreScreenshotsTests: XCTestCase {
             app.launchArguments = ["-interfaceLanguage", language]
             app.launch()
             XCTAssertTrue(button.waitForExistence(timeout: 20))
-            XCTAssertEqual(button.value as? String, language == "vi" ? "Bật" : "On")
+            waitForValue(on)
             button.tap()
             app.terminate()
         }
