@@ -673,6 +673,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private fun shoot() {
         val ic = imageCapture ?: return
         if (shotPending) return
+        // The previous shot can finish between two sensor events. Apply the current
+        // logical orientation here as well, before freezing this shot's level.
+        lastRot = when (curDeg) { 90 -> Surface.ROTATION_90; -90 -> Surface.ROTATION_270; 180 -> Surface.ROTATION_180; else -> Surface.ROTATION_0 }
+        ic.targetRotation = lastRot
         val level = if (sp.getBoolean("levelCrosshair", false)) {
             val value = guides.tilt
             if (value == null || android.os.SystemClock.elapsedRealtime() - levelSampleAt > 500) {
