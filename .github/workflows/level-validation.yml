@@ -32,7 +32,7 @@ jobs:
           gradle-version: '8.13'
       - name: Test, lint and build isolated test APK
         working-directory: android
-        run: gradle testDebugUnitTest lintPreview assemblePreview --console=plain --stacktrace
+        run: gradle testDebugUnitTest lintLeveltest assembleLeveltest --console=plain --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -40,4 +40,4 @@ jobs:
           path: |
             android/app/build/reports
             android/app/build/test-results
-            android/app/build/outputs/apk/preview/*.apk
+            android/app/build/outputs/apk/leveltest/*.apk

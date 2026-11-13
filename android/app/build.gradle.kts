@@ -28,6 +28,13 @@ android {
             resValue("string", "app_name", "Camera HT Thử")
             matchingFallbacks += listOf("release")
         }
+        create("leveltest") {
+            initWith(getByName("preview"))
+            applicationIdSuffix = ".leveltest"
+            versionNameSuffix = "-leveltest"
+            resValue("string", "app_name", "Camera HT Thước thử")
+            matchingFallbacks += listOf("preview", "release")
+        }
     }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
