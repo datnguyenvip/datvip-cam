@@ -2,6 +2,9 @@ name: Level crosshair Android validation
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/gravity-level-crosshair]
+    paths: ["android/**", "scripts/check-localization.py", ".github/workflows/level-validation.yml"]
 
 permissions:
   contents: read
