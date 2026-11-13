@@ -31,6 +31,7 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSCameraUsageDescription: Datvip Cam cần camera để chụp ảnh.
+        NSMotionUsageDescription: Camera HT dùng cảm biến trọng lực để hiển thị thước cân bằng.
         NSLocationWhenInUseUsageDescription: Datvip Cam cần vị trí để đóng dấu toạ độ lên ảnh.
         NSMicrophoneUsageDescription: Datvip Cam cần micro để ghi âm khi quay video.
         NSPhotoLibraryAddUsageDescription: Datvip Cam cần quyền lưu ảnh vào thư viện.
