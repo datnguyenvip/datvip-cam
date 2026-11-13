@@ -131,7 +131,7 @@ struct ContentView: View {
     private var captureButton: some View {
         Button { if m.videoMode { m.toggleRecord() } else {
             if levelEnabled && motion.captureTilt == nil { levelWarning = true }
-            else { m.shoot(level: levelEnabled ? motion.captureTilt : nil) }
+            else { m.shoot(level: levelEnabled ? motion.captureTilt : nil, orientation: motion.orientation) }
         } } label: { shutterLabel }
             .accessibilityIdentifier("camera-shutter")
     }

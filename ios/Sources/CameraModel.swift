@@ -270,13 +270,18 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         session.commitConfiguration()
     }
     func flip() { front.toggle(); DispatchQueue.global().async { self.configure(self.front ? .front : .back) } }
-    func shoot(level: Double? = nil) {
+    func shoot(level: Double? = nil, orientation: UIDeviceOrientation? = nil) {
+        let captureOrientation = orientation ?? devOrient
         let settings = AVCapturePhotoSettings()
         shotLock.lock()
-        shots[settings.uniqueID] = LevelShot(orientation: devOrient, aspect: previewAspect, tilt: level)
+        shots[settings.uniqueID] = LevelShot(orientation: captureOrientation, aspect: previewAspect, tilt: level)
         shotLock.unlock()
         if let conn = output.connection(with: .video), conn.isVideoOrientationSupported {
-            switch devOrient {
+            if conn.isVideoMirroringSupported {
+                conn.automaticallyAdjustsVideoMirroring = false
+                conn.isVideoMirrored = level != nil && front
+            }
+            switch captureOrientation {
             case .landscapeLeft: conn.videoOrientation = .landscapeRight
             case .landscapeRight: conn.videoOrientation = .landscapeLeft
             case .portraitUpsideDown: conn.videoOrientation = .portraitUpsideDown

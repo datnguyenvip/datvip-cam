@@ -448,6 +448,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private fun bind() {
         val p = provider ?: return
         if (videoBusy()) return
+        val photoViewPort = if (!videoMode) pv.viewPort ?: run {
+            pv.post { if (!destroying && !isFinishing) bind() }
+            return
+        } else null
         val preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_4_3).build().also { it.setSurfaceProvider(pv.surfaceProvider) }
         val ic = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(AspectRatio.RATIO_4_3).setTargetRotation(lastRot).build()
@@ -464,7 +468,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 p.bindToLifecycle(this, sel, preview, vc)
                 videoCapture = vc
             } else {
-                p.bindToLifecycle(this, sel, preview, ic)
+                val group = UseCaseGroup.Builder().setViewPort(photoViewPort!!)
+                    .addUseCase(preview).addUseCase(ic).build()
+                p.bindToLifecycle(this, sel, group)
                 imageCapture = ic
             }
         } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không mở được camera: {0}", (e.message))) }
@@ -674,17 +680,18 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             }
             value
         } else null
+        val mirrored = level != null && front
         shotPending = true
         ic.takePicture(ex, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 runOnUiThread { if (!destroying && b("shutterSound")) shutterSound.play(MediaActionSound.SHUTTER_CLICK) }
-                try { process(image, level) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close(); runOnUiThread { shotPending = false } }
+                try { process(image, level, mirrored) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close(); runOnUiThread { shotPending = false } }
             }
             override fun onError(e: ImageCaptureException) { runOnUiThread { shotPending = false }; toast(Language.text(this@MainActivity, "Chụp lỗi: {0}", (e.message))) }
         })
     }
 
-    private fun process(image: ImageProxy, level: Float?) {
+    private fun process(image: ImageProxy, level: Float?, mirrored: Boolean) {
         val buf = image.planes[0].buffer
         val bytes = ByteArray(buf.remaining()); buf.get(bytes)
         var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
@@ -694,6 +701,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             bmp = Bitmap.createBitmap(bmp, r.left, r.top, r.width(), r.height())
         val rot = image.imageInfo.rotationDegrees
         if (rot != 0) bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, Matrix().apply { postRotate(rot.toFloat()) }, true)
+        // Front preview is mirrored. Match it before drawing readable, unmirrored labels.
+        if (mirrored) bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, Matrix().apply { setScale(-1f, 1f) }, true)
         if (!bmp.isMutable) bmp = bmp.copy(Bitmap.Config.ARGB_8888, true)
         val d = Date()
         val L = lines(d)

@@ -3,6 +3,38 @@ import XCTest
 final class StoreScreenshotsTests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
 
+    func testLevelToggleInBothLanguagesAndAllLayouts() {
+        for (language, angle) in [("vi", "0"), ("en", "90"), ("vi", "-90")] {
+            let app = XCUIApplication()
+            app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
+            app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = angle
+            app.launchArguments = ["-interfaceLanguage", language, "-levelCrosshair", "NO"]
+            app.launch()
+            dismissPermissionAlerts()
+            let button = app.buttons["level-crosshair"]
+            XCTAssertTrue(button.waitForExistence(timeout: 20))
+            XCTAssertTrue(button.isHittable)
+            XCTAssertEqual(button.label, language == "vi" ? "Thước cân bằng" : "Level Crosshair")
+            for _ in 0..<3 {
+                button.tap()
+                XCTAssertEqual(button.value as? String, language == "vi" ? "Bật" : "On")
+                button.tap()
+                XCTAssertEqual(button.value as? String, language == "vi" ? "Tắt" : "Off")
+            }
+            button.tap()
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = "level-enabled-\(language)-\(angle)"; image.lifetime = .keepAlways
+            add(image)
+            app.terminate()
+            app.launchArguments = ["-interfaceLanguage", language]
+            app.launch()
+            XCTAssertTrue(button.waitForExistence(timeout: 20))
+            XCTAssertEqual(button.value as? String, language == "vi" ? "Bật" : "On")
+            button.tap()
+            app.terminate()
+        }
+    }
+
     private func dismissPermissionAlerts() {
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         for _ in 0..<4 {

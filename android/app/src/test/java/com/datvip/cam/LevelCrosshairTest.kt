@@ -6,6 +6,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
@@ -15,6 +16,20 @@ import kotlin.math.*
 @Config(sdk = [36])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LevelCrosshairTest {
+    @Test fun toggleClearsCrosshairAndGridRemainsIndependent() {
+        val view = CompositionGuidesView(RuntimeEnvironment.getApplication())
+        view.layout(0, 0, 360, 480)
+        fun image(): Bitmap = Bitmap.createBitmap(360, 480, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+        view.tilt = 0f
+        repeat(20) {
+            view.levelEnabled = true
+            assertTrue(Color.alpha(image().getPixel(180, 240)) > 0)
+            view.levelEnabled = false
+            assertEquals(0, image().getPixel(180, 240))
+        }
+        view.gridEnabled = true
+        assertTrue(Color.alpha(image().getPixel(120, 100)) > 0)
+    }
     @Test fun gravityProjectionForBothLandscapeDirectionsAndPortrait() {
         for (orientation in listOf(0, 90, -90, 180)) for (residual in listOf(-20.0, 0.0, 20.0)) {
             val filter = CameraOrientation()
