@@ -135,6 +135,7 @@ jobs:
             ios/StoreScreenImages
 
       - name: Upload IPA
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DatvipCam-unsigned-ipa

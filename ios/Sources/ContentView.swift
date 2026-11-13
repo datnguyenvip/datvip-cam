@@ -191,10 +191,19 @@ struct ContentView: View {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     VStack(spacing: 10) {
-                        mini("scope") { levelEnabled.toggle() }
-                            .overlay(Circle().stroke(levelEnabled ? Color.yellow : Color.clear, lineWidth: 2))
+                        Button { levelEnabled.toggle() } label: {
+                            Image(systemName: "scope").font(.system(size: 16))
+                                .foregroundColor(levelEnabled ? .yellow : .white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.black.opacity(0.6)).clipShape(Circle())
+                                .overlay(Circle().stroke(levelEnabled ? Color.yellow : Color.clear, lineWidth: 2)
+                                    .allowsHitTesting(false))
+                        }
+                            .buttonStyle(.plain)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel(AppLanguage.text("Thước cân bằng"))
                             .accessibilityValue(levelEnabled ? AppLanguage.text("Bật") : AppLanguage.text("Tắt"))
+                            .accessibilityAddTraits(levelEnabled ? .isSelected : [])
                             .accessibilityIdentifier("level-crosshair")
                         mini("pencil") { showNote = true }
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }

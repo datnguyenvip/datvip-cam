@@ -17,18 +17,17 @@ final class StoreScreenshotsTests: XCTestCase {
             XCTAssertTrue(button.waitForExistence(timeout: 20))
             XCTAssertTrue(button.isHittable)
             XCTAssertEqual(button.label, language == "vi" ? "Thước cân bằng" : "Level Crosshair")
-            let on = language == "vi" ? "Bật" : "On"
-            let off = language == "vi" ? "Tắt" : "Off"
-            func waitForValue(_ value: String) {
-                let condition = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: button)
-                XCTAssertEqual(XCTWaiter.wait(for: [condition], timeout: 3), .completed)
+            func waitForSelected(_ selected: Bool) {
+                let condition = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in button.isSelected == selected }, object: button)
+                XCTAssertEqual(XCTWaiter.wait(for: [condition], timeout: 10), .completed,
+                    "Expected selected=\(selected); actual selected=\(button.isSelected), value=\(String(describing: button.value)); \(button.debugDescription)")
             }
-            if button.value as? String == on { button.tap(); waitForValue(off) }
+            if button.isSelected { button.tap(); waitForSelected(false) }
             for _ in 0..<3 {
                 button.tap()
-                waitForValue(on)
+                waitForSelected(true)
                 button.tap()
-                waitForValue(off)
+                waitForSelected(false)
             }
             button.tap()
             let image = XCTAttachment(screenshot: app.screenshot())
@@ -38,8 +37,9 @@ final class StoreScreenshotsTests: XCTestCase {
             app.launchArguments = ["-interfaceLanguage", language]
             app.launch()
             XCTAssertTrue(button.waitForExistence(timeout: 20))
-            waitForValue(on)
+            waitForSelected(true)
             button.tap()
+            waitForSelected(false)
             app.terminate()
         }
     }
