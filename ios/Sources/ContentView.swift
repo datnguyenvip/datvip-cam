@@ -48,6 +48,8 @@ struct ContentView: View {
     @StateObject private var motion = CameraMotion()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("compositionGuides") private var guides = false
+    @AppStorage("levelCrosshair") private var levelEnabled = false
+    @State private var levelWarning = false
     @State private var showSettings = false
     @State private var showNote = false
     @State private var showGallery = false
@@ -77,6 +79,9 @@ struct ContentView: View {
         }
         .onAppear { motion.start(); m.previewAspect = 3.0 / 4.0; m.start() }
         .onDisappear { motion.stop() }
+        .alert(AppLanguage.text("Thước cân bằng"), isPresented: $levelWarning) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(AppLanguage.text("Chưa xác định được phương chuẩn")) }
         .onChange(of: motion.angle) { _ in m.devOrient = motion.orientation }
         .onChange(of: scenePhase) { phase in
             if phase == .active { motion.start() } else { motion.stop() }
@@ -124,7 +129,10 @@ struct ContentView: View {
     }
     private var settingsButton: some View { chip("gearshape") { showSettings = true } }
     private var captureButton: some View {
-        Button { if m.videoMode { m.toggleRecord() } else { m.shoot() } } label: { shutterLabel }
+        Button { if m.videoMode { m.toggleRecord() } else {
+            if levelEnabled && motion.captureTilt == nil { levelWarning = true }
+            else { m.shoot(level: levelEnabled ? motion.captureTilt : nil) }
+        } } label: { shutterLabel }
             .accessibilityIdentifier("camera-shutter")
     }
     private var landscapeControls: some View {
@@ -153,7 +161,14 @@ struct ContentView: View {
                             .frame(width: land ? fh : fw, height: land ? fw : fh)
                             .rotationEffect(.degrees(-angle))
                             .frame(width: fw, height: fh)
-                        if guides { CompositionGuides(tilt: motion.tilt) }
+                        if guides { CompositionGuides(tilt: levelEnabled ? nil : motion.tilt) }
+                        if levelEnabled {
+                            LevelCrosshairView(tilt: motion.tilt).allowsHitTesting(false)
+                            if motion.tilt == nil {
+                                Text(AppLanguage.text("Chưa xác định được phương chuẩn"))
+                                    .font(.caption).foregroundColor(.yellow).padding(6).background(Color.black.opacity(0.8))
+                            }
+                        }
                         TimelineView(.periodic(from: .now, by: 1)) { tl in overlay(tl.date, fw, fh) }
                     }
                     .frame(width: fw, height: fh).clipped()
@@ -176,6 +191,11 @@ struct ContentView: View {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     VStack(spacing: 10) {
+                        mini("scope") { levelEnabled.toggle() }
+                            .overlay(Circle().stroke(levelEnabled ? Color.yellow : Color.clear, lineWidth: 2))
+                            .accessibilityLabel(AppLanguage.text("Thước cân bằng"))
+                            .accessibilityValue(levelEnabled ? AppLanguage.text("Bật") : AppLanguage.text("Tắt"))
+                            .accessibilityIdentifier("level-crosshair")
                         mini("pencil") { showNote = true }
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }
                     }.padding(10)

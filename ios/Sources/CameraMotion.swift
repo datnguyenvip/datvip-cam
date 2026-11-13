@@ -7,13 +7,19 @@ struct CameraOrientationFilter {
     private(set) var tilt: Double? = nil
     private var x = 0.0, y = -1.0
     private var initialized = false
+    private var previousTime: Double?
     private var candidate = 0.0
     private var candidateSince = 0.0
 
     mutating func update(x rawX: Double, y rawY: Double, time: Double) {
-        guard rawX.isFinite, rawY.isFinite else { return }
+        guard rawX.isFinite, rawY.isFinite else { tilt = nil; return }
+        let alpha = previousTime.map { 1 - exp(-max(0, time - $0) / 0.08) } ?? 1
+        previousTime = time
+        guard hypot(rawX, rawY) > 0.45 else {
+            tilt = nil; initialized = false; candidate = angle; candidateSince = time; return
+        }
         if !initialized { x = rawX; y = rawY; initialized = true }
-        else { x += 0.18 * (rawX - x); y += 0.18 * (rawY - y) }
+        else { x += alpha * (rawX - x); y += alpha * (rawY - y) }
         guard hypot(x, y) > 0.45 else { tilt = nil; candidate = angle; candidateSince = time; return }
         let measured = atan2(-x, -y) * 180 / .pi
         let nearest = (measured / 90).rounded() * 90
@@ -33,6 +39,13 @@ final class CameraMotion: ObservableObject {
     @Published private(set) var angle = 0.0
     @Published private(set) var tilt: Double?
     private let manager = CMMotionManager()
+    private var sampleAt = Date.distantPast
+    var captureTilt: Double? { Date().timeIntervalSince(sampleAt) <= 0.5 ? tilt : nil }
+    private func update(_ gravity: CMAcceleration, time: Double) {
+        filter.update(x: gravity.x, y: gravity.y, time: time)
+        if angle != filter.angle { angle = filter.angle }
+        tilt = filter.tilt; sampleAt = Date()
+    }
     private var filter = CameraOrientationFilter()
     func start() {
         #if DEBUG
@@ -43,13 +56,20 @@ final class CameraMotion: ObservableObject {
             return
         }
         #endif
-        guard !manager.isAccelerometerActive, manager.isAccelerometerAvailable else { return }
-        manager.accelerometerUpdateInterval = 1.0 / 20
+        guard !manager.isDeviceMotionActive, !manager.isAccelerometerActive else { return }
+        if manager.isDeviceMotionAvailable {
+            manager.deviceMotionUpdateInterval = 1.0 / 50
+            manager.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
+                guard let data = data else { self?.tilt = nil; return }
+                self?.update(data.gravity, time: data.timestamp)
+            }
+            return
+        }
+        guard manager.isAccelerometerAvailable else { return }
+        manager.accelerometerUpdateInterval = 1.0 / 50
         manager.startAccelerometerUpdates(to: .main) { [weak self] data, _ in
             guard let self = self, let data = data else { return }
-            self.filter.update(x: data.acceleration.x, y: data.acceleration.y, time: data.timestamp)
-            if self.angle != self.filter.angle { self.angle = self.filter.angle }
-            self.tilt = self.filter.tilt
+            self.update(data.acceleration, time: data.timestamp)
         }
     }
     #if DEBUG
@@ -60,8 +80,8 @@ final class CameraMotion: ObservableObject {
         tilt = 0
     }
     #endif
-    func stop() { manager.stopAccelerometerUpdates() }
-    deinit { manager.stopAccelerometerUpdates() }
+    func stop() { manager.stopDeviceMotionUpdates(); manager.stopAccelerometerUpdates(); tilt = nil; sampleAt = .distantPast }
+    deinit { manager.stopDeviceMotionUpdates(); manager.stopAccelerometerUpdates() }
     var orientation: UIDeviceOrientation {
         switch angle { case 90: return .landscapeLeft; case -90: return .landscapeRight
         case 180: return .portraitUpsideDown; default: return .portrait }

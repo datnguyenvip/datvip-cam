@@ -140,6 +140,12 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var curDeg = 0
     private var lastRot = Surface.ROTATION_0
     private val orientationFilter = CameraOrientation()
+    private var levelSampleAt = 0L
+    private var shotPending = false
+    private val gravitySensorType by lazy {
+        if (getSystemService(SensorManager::class.java).getDefaultSensor(Sensor.TYPE_GRAVITY) != null)
+            Sensor.TYPE_GRAVITY else Sensor.TYPE_ACCELEROMETER
+    }
     private lateinit var cameraRoot: LinearLayout
     private lateinit var cameraControls: LinearLayout
     private lateinit var cameraModes: LinearLayout
@@ -332,6 +338,21 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             setOnClickListener { f() }
         }
         val side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val levelButton = mini("⊕") {}.apply {
+            fun updateState() {
+                val enabled = sp.getBoolean("levelCrosshair", false)
+                setTextColor(if (enabled) Color.YELLOW else Color.WHITE)
+                contentDescription = Language.text(this@MainActivity, "Thước cân bằng")
+                isSelected = enabled
+                guides.levelEnabled = enabled
+            }
+            updateState()
+            setOnClickListener {
+                sp.edit().putBoolean("levelCrosshair", !sp.getBoolean("levelCrosshair", false)).apply()
+                updateState()
+            }
+        }
+        side.addView(levelButton, LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(10) })
         side.addView(mini("✎") { quickNote() }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { bottomMargin = dp(10) })
         side.addView(mini("📍") { locateDialog() }, LinearLayout.LayoutParams(dp(42), dp(42)))
         stage.addView(side, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.BOTTOM).apply { setMargins(0, 0, dp(10), dp(14)) })
@@ -645,16 +666,25 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     private fun shoot() {
         val ic = imageCapture ?: return
+        if (shotPending) return
+        val level = if (sp.getBoolean("levelCrosshair", false)) {
+            val value = guides.tilt
+            if (value == null || android.os.SystemClock.elapsedRealtime() - levelSampleAt > 500) {
+                toast(Language.text(this@MainActivity, "Chưa xác định được phương chuẩn")); return
+            }
+            value
+        } else null
+        shotPending = true
         ic.takePicture(ex, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 runOnUiThread { if (!destroying && b("shutterSound")) shutterSound.play(MediaActionSound.SHUTTER_CLICK) }
-                try { process(image) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close() }
+                try { process(image, level) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close(); runOnUiThread { shotPending = false } }
             }
-            override fun onError(e: ImageCaptureException) { toast(Language.text(this@MainActivity, "Chụp lỗi: {0}", (e.message))) }
+            override fun onError(e: ImageCaptureException) { runOnUiThread { shotPending = false }; toast(Language.text(this@MainActivity, "Chụp lỗi: {0}", (e.message))) }
         })
     }
 
-    private fun process(image: ImageProxy) {
+    private fun process(image: ImageProxy, level: Float?) {
         val buf = image.planes[0].buffer
         val bytes = ByteArray(buf.remaining()); buf.get(bytes)
         var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
@@ -668,8 +698,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val d = Date()
         val L = lines(d)
         val rows = L.rows + (Language.text(this@MainActivity, "Mã xác thực: ") + code(d))
+        // Draw after crop/rotation, before the existing stamps so their content stays legible.
+        level?.let { LevelCrosshair.draw(Canvas(bmp), bmp.width, bmp.height, it) }
         stamp(bmp, Stamp(L.head, L.date, rows))
-        val name = "DatvipCam_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(d) + ".jpg"
+        val name = "DatvipCam_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(d) + "_" + java.util.UUID.randomUUID() + ".jpg"
         val cv = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -678,12 +710,15 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv) ?: throw Exception("MediaStore")
         contentResolver.openOutputStream(uri)!!.use { bmp.compress(Bitmap.CompressFormat.JPEG, 93, it) }
         val gl = loc
-        if (gl != null) try {
+        try {
             contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
                 val ex = ExifInterface(pfd.fileDescriptor)
-                ex.setLatLong(gl.latitude, gl.longitude)
-                if (gl.hasAltitude()) ex.setAltitude(gl.altitude)
-                ex.setAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION, "https://www.google.com/maps/dir/?api=1&destination=" + String.format(Locale.US, "%.6f,%.6f", gl.latitude, gl.longitude))
+                PhotoMetadata.copy(bytes, ex, bmp.width, bmp.height)
+                if (gl != null) {
+                    ex.setLatLong(gl.latitude, gl.longitude)
+                    if (gl.hasAltitude()) ex.setAltitude(gl.altitude)
+                    ex.setAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION, "https://www.google.com/maps/dir/?api=1&destination=" + String.format(Locale.US, "%.6f,%.6f", gl.latitude, gl.longitude))
+                }
                 ex.saveAttributes()
             }
         } catch (e: Exception) {}
@@ -748,13 +783,14 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 if (lm.isProviderEnabled(pr)) lm.requestLocationUpdates(pr, 2000L, 0f, this)
         } else gpsTv.text = Language.text(this@MainActivity, "Chưa cấp quyền vị trí")
         val sm = getSystemService(SensorManager::class.java)
-        sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        sm.getDefaultSensor(gravitySensorType)?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
     }
     override fun onResume() { super.onResume(); if (granted(Manifest.permission.CAMERA) && provider == null) startCamera(); startSensors() }
     override fun onPause() {
         if (recording != null) stopVideo()
         super.onPause()
+        guides.tilt = null; levelSampleAt = 0L
         getSystemService(LocationManager::class.java).removeUpdates(this)
         getSystemService(SensorManager::class.java).unregisterListener(this)
     }
@@ -803,17 +839,18 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     override fun onProviderDisabled(provider: String) {}
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     override fun onSensorChanged(e: SensorEvent) {
-        if (e.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+        if (e.sensor.type == gravitySensorType) {
             orientationFilter.update(e.values[0] / SensorManager.GRAVITY_EARTH.toDouble(),
                 e.values[1] / SensorManager.GRAVITY_EARTH.toDouble(), e.timestamp / 1_000_000)
             guides.tilt = orientationFilter.tilt
+            levelSampleAt = android.os.SystemClock.elapsedRealtime()
             val deg = orientationFilter.angle
             if (deg != curDeg) {
                 curDeg = deg
                 applyRotation()
             }
             // A recording keeps its initial output dimensions; controls may still rotate.
-            if (!videoBusy()) {
+            if (!videoBusy() && !shotPending) {
                 lastRot = when (curDeg) { 90 -> Surface.ROTATION_90; -90 -> Surface.ROTATION_270; 180 -> Surface.ROTATION_180; else -> Surface.ROTATION_0 }
                 imageCapture?.targetRotation = lastRot
                 videoCapture?.targetRotation = lastRot
@@ -934,7 +971,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         // Let the stage finish measuring before changing texture dimensions.
         // Using its old portrait bounds here would resize the texture twice.
         pv.rotation = -curDeg.toFloat()
-        guides.visibility = if (sp.getBoolean("compositionGuides", false)) View.VISIBLE else View.GONE
+        guides.gridEnabled = sp.getBoolean("compositionGuides", false)
+        guides.visibility = View.VISIBLE
         refresh()
     }
 

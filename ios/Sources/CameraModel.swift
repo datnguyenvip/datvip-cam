@@ -34,7 +34,13 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private let geocoder = CLGeocoder()
     private var lastGeo = Date.distantPast
     private var front = false
-    private var shotOrient: UIDeviceOrientation = .portrait
+    private struct LevelShot {
+        let orientation: UIDeviceOrientation
+        let aspect: CGFloat
+        let tilt: Double?
+    }
+    private let shotLock = NSLock()
+    private var shots: [Int64: LevelShot] = [:]
     // quay video
     let videoOut = AVCaptureVideoDataOutput()
     let audioOut = AVCaptureAudioDataOutput()
@@ -264,8 +270,11 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         session.commitConfiguration()
     }
     func flip() { front.toggle(); DispatchQueue.global().async { self.configure(self.front ? .front : .back) } }
-    func shoot() {
-        shotOrient = devOrient
+    func shoot(level: Double? = nil) {
+        let settings = AVCapturePhotoSettings()
+        shotLock.lock()
+        shots[settings.uniqueID] = LevelShot(orientation: devOrient, aspect: previewAspect, tilt: level)
+        shotLock.unlock()
         if let conn = output.connection(with: .video), conn.isVideoOrientationSupported {
             switch devOrient {
             case .landscapeLeft: conn.videoOrientation = .landscapeRight
@@ -274,7 +283,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             default: conn.videoOrientation = .portrait
             }
         }
-        output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
+        output.capturePhoto(with: settings, delegate: self)
     }
 
     // MARK: Quay video (dấu giờ, GPS được vẽ trực tiếp vào từng khung hình)
@@ -401,27 +410,44 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard error == nil, let data = photo.fileDataRepresentation(), let img = UIImage(data: data) else { return }
+        shotLock.lock()
+        let shot = shots.removeValue(forKey: photo.resolvedSettings.uniqueID)
+        shotLock.unlock()
+        guard let shot = shot, error == nil, let data = photo.fileDataRepresentation(), let img = UIImage(data: data) else { return }
         DispatchQueue.main.async { self.shutterFeedback.play() }
         let d = Date(), l = loc
-        let land = shotOrient == .landscapeLeft || shotOrient == .landscapeRight
-        let aspect = land ? 1 / previewAspect : previewAspect
+        let land = shot.orientation == .landscapeLeft || shot.orientation == .landscapeRight
+        let aspect = land ? 1 / shot.aspect : shot.aspect
+        let metadata = photo.metadata
         DispatchQueue.global(qos: .userInitiated).async {
-            let base = img.normalized().cropped(to: aspect)
+            let cropped = img.normalized().cropped(to: aspect)
+            let base = shot.tilt.map { LevelCrosshairRenderer.render(cropped, tilt: $0) } ?? cropped
             var L = self.lines(d, l)
             L.rows.append(AppLanguage.text("Mã xác thực: ") + self.code(d, l))
             let out = self.stamp(base, L)
-            if let jpg = self.jpeg(out, l) { self.save(jpg, d, l) }
+            if let jpg = self.jpeg(out, l, metadata: metadata) { self.save(jpg, d, l) }
         }
     }
-    private func jpeg(_ img: UIImage, _ l: CLLocation?) -> Data? {
+    private func jpeg(_ img: UIImage, _ l: CLLocation?, metadata: [String: Any]) -> Data? {
         guard let cg = img.cgImage else { return nil }
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
-        var props: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.93]
+        var props = metadata
+        props[kCGImageDestinationLossyCompressionQuality as String] = 0.93
+        props[kCGImagePropertyOrientation as String] = 1
+        props[kCGImagePropertyPixelWidth as String] = cg.width
+        props[kCGImagePropertyPixelHeight as String] = cg.height
+        props.removeValue(forKey: kCGImagePropertyThumbnailImages as String)
+        var exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
+        exif[kCGImagePropertyExifPixelXDimension as String] = cg.width
+        exif[kCGImagePropertyExifPixelYDimension as String] = cg.height
+        props[kCGImagePropertyExifDictionary as String] = exif
+        var tiff = props[kCGImagePropertyTIFFDictionary as String] as? [String: Any] ?? [:]
+        tiff[kCGImagePropertyTIFFOrientation as String] = 1
+        props[kCGImagePropertyTIFFDictionary as String] = tiff
         if let l = l {
             let la = l.coordinate.latitude, lo = l.coordinate.longitude
-            props[kCGImagePropertyGPSDictionary] = [
+            props[kCGImagePropertyGPSDictionary as String] = [
                 kCGImagePropertyGPSLatitude: abs(la), kCGImagePropertyGPSLatitudeRef: la >= 0 ? "N" : "S",
                 kCGImagePropertyGPSLongitude: abs(lo), kCGImagePropertyGPSLongitudeRef: lo >= 0 ? "E" : "W",
                 kCGImagePropertyGPSAltitude: abs(l.altitude), kCGImagePropertyGPSAltitudeRef: l.altitude >= 0 ? 0 : 1

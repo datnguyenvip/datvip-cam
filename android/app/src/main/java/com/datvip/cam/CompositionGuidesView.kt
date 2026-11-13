@@ -7,8 +7,12 @@ import android.graphics.Paint
 import android.view.View
 import kotlin.math.abs
 
-/** Preview only: deliberately separate from the photo/video stamp renderer. */
+/** Grid remains preview-only; the level uses the shared photo renderer. */
 class CompositionGuidesView(context: Context) : View(context) {
+    var gridEnabled = false
+        set(value) { field = value; invalidate() }
+    var levelEnabled = false
+        set(value) { field = value; invalidate() }
     var tilt: Float? = null
         set(value) { field = value; invalidate() }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -17,10 +21,18 @@ class CompositionGuidesView(context: Context) : View(context) {
         val w = width.toFloat(); val h = height.toFloat()
         val d = resources.displayMetrics.density
         paint.color = 0x73FFFFFF; paint.strokeWidth = .7f * d
-        for (i in 1..2) {
+        if (gridEnabled) for (i in 1..2) {
             canvas.drawLine(w * i / 3, 0f, w * i / 3, h, paint)
             canvas.drawLine(0f, h * i / 3, w, h * i / 3, paint)
         }
+        if (levelEnabled) {
+            tilt?.let { LevelCrosshair.draw(canvas, width, height, it) } ?: run {
+                paint.color = Color.YELLOW; paint.textSize = 13f * d
+                canvas.drawText(Language.text(context, "Chưa xác định được phương chuẩn"), 12*d, h/2, paint)
+            }
+            return
+        }
+        if (!gridEnabled) return
         val value = tilt ?: return
         canvas.save(); canvas.translate(w / 2, h / 2)
         paint.color = 0x99FFFFFF.toInt(); paint.strokeWidth = d
