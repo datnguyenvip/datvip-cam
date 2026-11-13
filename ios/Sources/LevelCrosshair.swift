@@ -43,7 +43,7 @@ enum LevelCrosshairRenderer {
 struct LevelCrosshairView: UIViewRepresentable {
     let tilt: Double?
     func makeUIView(context: Context) -> LevelCanvas {
-        let view = LevelCanvas(); view.backgroundColor = .clear; view.isUserInteractionEnabled = false
+        let view = LevelCanvas(); view.backgroundColor = .clear; view.isOpaque = false; view.isUserInteractionEnabled = false
         view.isAccessibilityElement = false; return view
     }
     func updateUIView(_ view: LevelCanvas, context: Context) { view.tilt = tilt; view.setNeedsDisplay() }
