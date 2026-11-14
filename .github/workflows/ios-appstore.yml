@@ -63,7 +63,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$RUNNER_TEMP/CameraHT.xcarchive/Products/Applications/DatvipCam.app/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print DTSDKName' "$RUNNER_TEMP/CameraHT.xcarchive/Products/Applications/DatvipCam.app/Info.plist"
           APP_INFO="$RUNNER_TEMP/CameraHT.xcarchive/Products/Applications/DatvipCam.app/Info.plist"
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_INFO")" = '1.1.1'
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_INFO")" = '1.1.2'
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP_INFO")" = '171'
       - name: Export App Store IPA
         run: |
