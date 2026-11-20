@@ -10,7 +10,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -315,14 +315,22 @@ jobs:
 
           echo "SIGNED IPA EXPORT SUCCESS"
 
-      # 8. Save signed IPA as artifact
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SurveyCalculatorDV-iOS-Signed
-          path: ${{ runner.temp }}/SurveyDV-export/*.ipa
-          if-no-files-found: error
-          retention-days: 7
+      # The account's Actions artifact storage is full. A draft release keeps
+      # the signed package downloadable without publishing a release.
+      - name: Save IPA as an unpublished draft asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          IPA=$(find "$RUNNER_TEMP/SurveyDV-export" -name '*.ipa' -type f -print -quit)
+          test -n "$IPA"
+          PACKAGE="$RUNNER_TEMP/SurveyCalculatorDV-1.1.0-build2-AppStore.ipa"
+          cp "$IPA" "$PACKAGE"
+          gh release create survey-dv-1.1.0-build2 "$PACKAGE" \
+            --repo "$GITHUB_REPOSITORY" --target build/survey-dv-1.1.0 \
+            --draft --title 'Survey DV 1.1.0 build 2 — package delivery' \
+            --notes 'Unpublished package delivery only. Survey source e53f1508ff6cd796c44e502f30614c4283064b35. No App Store or TestFlight upload.'
 
       # 9. Optional TestFlight upload
       - name: Upload to TestFlight
