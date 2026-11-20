@@ -1,382 +1,71 @@
-
-name: Build Survey DV signed iOS IPA
+name: Upload existing Survey DV IPA to TestFlight
 
 on:
   workflow_dispatch:
-    inputs:
-      upload:
-        description: Upload IPA to TestFlight
-        type: boolean
-        default: false
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: survey-dv-testflight-1.1.0-build3
+  cancel-in-progress: false
 
 jobs:
-  build:
+  upload-existing-ipa:
     runs-on: macos-15-intel
-    timeout-minutes: 90
-
+    timeout-minutes: 65
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      APP_ID: com.datnguyenvip.surveycalculatordv
-      APP_TEAM: FXQ7QLZ2HS
-
     steps:
-      # 1. Get Survey Calculator DV source
-      - name: Checkout Survey Calculator DV
+      - name: Checkout reviewed upload script (no app build)
         uses: actions/checkout@v4
         with:
           repository: datnguyenvip/survey-calculator-dv
-          ref: fix/flutter-ci-first-apk
+          ref: 3163742abd2c367adbeba3e84bbbf39fea5ea40e
           token: ${{ secrets.SURVEY_DV_SOURCE_TOKEN }}
           persist-credentials: false
-
-      # 2. Install Flutter
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      # 3. Restore and build Flutter iOS
-      - name: Restore iOS project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          flutter --version
-          flutter pub get
-
-          if [ ! -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            flutter create --platforms=ios \
-              --org com.datnguyenvip \
-              --project-name survey_calculator_dv .
-          fi
-
-          test -f ios/Runner.xcodeproj/project.pbxproj
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("ios/Runner.xcodeproj/project.pbxproj")
-          content = path.read_text()
-
-          content, count = re.subn(
-              r'(PRODUCT_BUNDLE_IDENTIFIER\s*=\s*)[^;]+;',
-              r'\g<1>com.datnguyenvip.surveycalculatordv;',
-              content,
-          )
-
-          if count == 0:
-              raise SystemExit("Missing bundle identifier")
-
-          path.write_text(content)
-          print("Bundle ID configured")
-          PY
-
-          flutter pub get
-
-          flutter build ios \
-            --release \
-            --no-codesign \
-            --build-name=1.0.0 \
-            --build-number=1
-
-          echo "FLUTTER IOS BUILD SUCCESS"
-
-      # 4. Install signing credentials
-      - name: Install Apple signing credentials
-        shell: bash
+      - name: Download the original signed IPA from unpublished draft
         env:
-          P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
-          PROFILE_BASE64: ${{ secrets.SURVEY_DV_IOS_PROFILE_BASE64 }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
-          : "${P12_BASE64:?Missing P12}"
-          : "${P12_PASSWORD:?Missing P12 password}"
-          : "${PROFILE_BASE64:?Missing provisioning profile}"
-
-          printf '%s' "$P12_BASE64" | base64 --decode \
-            > "$RUNNER_TEMP/sign.p12"
-
-          printf '%s' "$PROFILE_BASE64" | base64 --decode \
-            > "$RUNNER_TEMP/profile.mobileprovision"
-
-          chmod 600 "$RUNNER_TEMP/sign.p12"
-
-          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
-          echo "::add-mask::$KEYCHAIN_PASSWORD"
-
-          security create-keychain \
-            -p "$KEYCHAIN_PASSWORD" \
-            "$RUNNER_TEMP/signing.keychain-db"
-
-          security unlock-keychain \
-            -p "$KEYCHAIN_PASSWORD" \
-            "$RUNNER_TEMP/signing.keychain-db"
-
-          security set-keychain-settings \
-            -lut 21600 \
-            "$RUNNER_TEMP/signing.keychain-db"
-
-          security import "$RUNNER_TEMP/sign.p12" \
-            -P "$P12_PASSWORD" \
-            -t cert \
-            -f pkcs12 \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security \
-            -k "$RUNNER_TEMP/signing.keychain-db"
-
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -k "$KEYCHAIN_PASSWORD" \
-            "$RUNNER_TEMP/signing.keychain-db"
-
-          security list-keychains -d user -s \
-            "$RUNNER_TEMP/signing.keychain-db" \
-            login.keychain-db
-
-          security cms -D \
-            -i "$RUNNER_TEMP/profile.mobileprovision" \
-            > "$RUNNER_TEMP/profile.plist"
-
-          PROFILE_UUID=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print UUID' \
-              "$RUNNER_TEMP/profile.plist"
-          )
-
-          PROFILE_APP=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print Entitlements:application-identifier' \
-              "$RUNNER_TEMP/profile.plist"
-          )
-
-          test "$PROFILE_APP" = "$APP_TEAM.$APP_ID"
-
-          mkdir -p \
-            "$HOME/Library/MobileDevice/Provisioning Profiles"
-
-          cp "$RUNNER_TEMP/profile.mobileprovision" \
-            "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-
-          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
-
-          echo "APPLE SIGNING CREDENTIALS READY"
-
-      # 5. Configure signing ONLY for Runner
-      - name: Configure Runner-only signing
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if ! ruby -e 'require "xcodeproj"' >/dev/null 2>&1; then
-            gem install --user-install xcodeproj --no-document
-          fi
-
-          ruby <<'RUBY'
-          require 'xcodeproj'
-
-          project_path = 'ios/Runner.xcodeproj'
-          project = Xcodeproj::Project.open(project_path)
-
-          target = project.targets.find do |item|
-            item.name == 'Runner'
-          end
-
-          abort 'Runner target not found' unless target
-
-          config = target.build_configurations.find do |item|
-            item.name == 'Release'
-          end
-
-          abort 'Release configuration not found' unless config
-
-          settings = config.build_settings
-
-          settings['CODE_SIGN_STYLE'] = 'Manual'
-          settings['DEVELOPMENT_TEAM'] = ENV.fetch('APP_TEAM')
-
-          settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] =
-            'Apple Distribution'
-
-          settings['PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]'] =
-            ENV.fetch('PROFILE_UUID')
-
-          attrs = project.root_object.attributes
-          attrs['TargetAttributes'] ||= {}
-          attrs['TargetAttributes'][target.uuid] ||= {}
-
-          attrs['TargetAttributes'][target.uuid]['ProvisioningStyle'] =
-            'Manual'
-
-          project.save
-
-          puts 'RUNNER ONLY SIGNING CONFIGURED'
-          RUBY
-
-      # 6. Archive signed application
-      - name: Archive signed iOS app
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/SurveyDV.xcarchive" \
-            archive
-
-          APP="$RUNNER_TEMP/SurveyDV.xcarchive/Products/Applications/Runner.app"
-
-          test -d "$APP"
-
-          codesign --verify \
-            --deep \
-            --strict \
-            --verbose=2 \
-            "$APP"
-
-          ACTUAL_ID=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print CFBundleIdentifier' \
-              "$APP/Info.plist"
-          )
-
-          test "$ACTUAL_ID" = "$APP_ID"
-
-          ACTUAL_VERSION=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print CFBundleShortVersionString' \
-              "$APP/Info.plist"
-          )
-
-          ACTUAL_BUILD=$(
-            /usr/libexec/PlistBuddy \
-              -c 'Print CFBundleVersion' \
-              "$APP/Info.plist"
-          )
-
-          test "$ACTUAL_VERSION" = "1.0.0"
-          test "$ACTUAL_BUILD" = "1"
-
-          echo "SIGNED IOS ARCHIVE SUCCESS"
-
-      # 7. Export signed IPA
-      - name: Export signed IPA
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY'
-          import os
-          import plistlib
-
-          settings = {
-              "method": "app-store-connect",
-              "teamID": os.environ["APP_TEAM"],
-              "signingStyle": "manual",
-              "signingCertificate": "Apple Distribution",
-              "manageAppVersionAndBuildNumber": False,
-              "provisioningProfiles": {
-                  os.environ["APP_ID"]:
-                      os.environ["PROFILE_UUID"]
-              }
-          }
-
-          path = os.path.join(
-              os.environ["RUNNER_TEMP"],
-              "ExportOptions.plist"
-          )
-
-          with open(path, "wb") as f:
-              plistlib.dump(settings, f)
-
-          print("ExportOptions.plist created")
-          PY
-
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/SurveyDV.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/SurveyDV-export"
-
-          find "$RUNNER_TEMP/SurveyDV-export" \
-            -name "*.ipa" -type f
-
-          echo "SIGNED IPA EXPORT SUCCESS"
-
-      # 8. Save signed IPA as artifact
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SurveyCalculatorDV-iOS-Signed
-          path: ${{ runner.temp }}/SurveyDV-export/*.ipa
-          if-no-files-found: error
-          retention-days: 7
-
-      # 9. Optional TestFlight upload
-      - name: Upload to TestFlight
-        if: ${{ inputs.upload }}
-        shell: bash
+          mkdir -p "$RUNNER_TEMP/survey-ipa"
+          gh release download survey-dv-1.1.0-build3 \
+            --repo datnguyenvip/datvip-cam \
+            --pattern SurveyCalculatorDV-1.1.0-build3-AppStore.ipa \
+            --dir "$RUNNER_TEMP/survey-ipa"
+      - name: Verify identity and signature, upload with Apple altool, monitor processing
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
         run: |
           set -euo pipefail
-
-          : "${ASC_KEY_ID:?Missing API key ID}"
-          : "${ASC_ISSUER_ID:?Missing issuer ID}"
-          : "${ASC_PRIVATE_KEY:?Missing API private key}"
-
-          mkdir -p \
-            "$HOME/.appstoreconnect/private_keys"
-
-          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
-
-          printf '%s' "$ASC_PRIVATE_KEY" > "$KEY_PATH"
-          chmod 600 "$KEY_PATH"
-
-          shopt -s nullglob
-
-          files=("$RUNNER_TEMP"/SurveyDV-export/*.ipa)
-
-          test "${#files[@]}" -eq 1
-
-          xcrun altool --upload-app \
-            --type ios \
-            --file "${files[0]}" \
-            --apiKey "$ASC_KEY_ID" \
-            --apiIssuer "$ASC_ISSUER_ID"
-
-          echo "TESTFLIGHT UPLOAD SUBMITTED"
-
-      # 10. Remove temporary credentials
-      - name: Cleanup signing credentials
+          python3 ci/testflight_upload.py \
+            --ipa "$RUNNER_TEMP/survey-ipa/SurveyCalculatorDV-1.1.0-build3-AppStore.ipa" \
+            --report "$RUNNER_TEMP/testflight-1.1.0-build3-status.json" \
+            --wait-minutes 40
+      - name: Save non-secret processing report to the unpublished draft
         if: always()
-        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          security delete-keychain \
-            "$RUNNER_TEMP/signing.keychain-db" || true
-
-          rm -f \
-            "$RUNNER_TEMP/sign.p12" \
-            "$RUNNER_TEMP/profile.mobileprovision" \
-            "$RUNNER_TEMP/profile.plist" \
-            "$RUNNER_TEMP/ExportOptions.plist"
-
-          if [ -n "${PROFILE_UUID:-}" ]; then
-            rm -f \
-              "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/testflight-1.1.0-build3-status.json"
+          if [ -f "$REPORT" ]; then
+            gh release upload survey-dv-1.1.0-build3 "$REPORT" \
+              --repo datnguyenvip/datvip-cam --clobber
           fi
-
-          rm -f \
-            "$HOME/.appstoreconnect/private_keys/"AuthKey_*.p8
-
-          echo "SIGNING CREDENTIALS CLEANED"
+      - name: Remove temporary API key
+        if: always()
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          identifier = os.environ.get('ASC_KEY_ID', '')
+          if identifier.isalnum():
+              path = Path.home() / '.appstoreconnect/private_keys' / ('AuthKey_' + identifier + '.p8')
+              path.unlink(missing_ok=True)
+          PY
