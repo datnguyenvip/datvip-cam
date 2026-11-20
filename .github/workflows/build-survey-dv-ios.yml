@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: datnguyenvip/survey-calculator-dv
-          ref: e53f1508ff6cd796c44e502f30614c4283064b35
+          ref: f75f2b1f3cb4b7417ab28c0230d40731625baf86
           token: ${{ secrets.SURVEY_DV_SOURCE_TOKEN }}
           persist-credentials: false
 
@@ -86,7 +86,7 @@ jobs:
             --release \
             --no-codesign \
             --build-name=1.1.0 \
-            --build-number=2
+            --build-number=3
 
           echo "FLUTTER IOS BUILD SUCCESS"
 
@@ -268,7 +268,7 @@ jobs:
           )
 
           test "$ACTUAL_VERSION" = "1.1.0"
-          test "$ACTUAL_BUILD" = "2"
+          test "$ACTUAL_BUILD" = "3"
 
           echo "SIGNED IOS ARCHIVE SUCCESS"
 
@@ -325,12 +325,12 @@ jobs:
           set -euo pipefail
           IPA=$(find "$RUNNER_TEMP/SurveyDV-export" -name '*.ipa' -type f -print -quit)
           test -n "$IPA"
-          PACKAGE="$RUNNER_TEMP/SurveyCalculatorDV-1.1.0-build2-AppStore.ipa"
+          PACKAGE="$RUNNER_TEMP/SurveyCalculatorDV-1.1.0-build3-AppStore.ipa"
           cp "$IPA" "$PACKAGE"
-          gh release create survey-dv-1.1.0-build2 "$PACKAGE" \
-            --repo "$GITHUB_REPOSITORY" --target build/survey-dv-1.1.0 \
-            --draft --title 'Survey DV 1.1.0 build 2 — package delivery' \
-            --notes 'Unpublished package delivery only. Survey source e53f1508ff6cd796c44e502f30614c4283064b35. No App Store or TestFlight upload.'
+          gh release create survey-dv-1.1.0-build3 "$PACKAGE" \
+            --repo "$GITHUB_REPOSITORY" --target build/survey-dv-dark-build3 \
+            --draft --title 'Survey DV 1.1.0 build 3 — package delivery' \
+            --notes 'Unpublished package delivery only. Survey source f75f2b1f3cb4b7417ab28c0230d40731625baf86. No App Store or TestFlight upload.'
 
       # 9. Optional TestFlight upload
       - name: Upload to TestFlight
