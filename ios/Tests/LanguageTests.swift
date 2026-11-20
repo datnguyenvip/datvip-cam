@@ -10,7 +10,7 @@ final class LanguageTests: XCTestCase {
         defaults.set("Địa điểm {1}: Linh Xuân", forKey: "proj")
         defaults.set("Địa điểm", forKey: "f1l")
         defaults.set("Ngã ba đường Hoàng Cầm - đường số 5", forKey: "f1v")
-        XCTAssertEqual(AppLanguage.name, "Field Camera")
+        XCTAssertEqual(AppLanguage.name, "Field Camera – GPS Stamp")
         XCTAssertEqual(AppLanguage.text("Chụp ảnh"), "Take Photo")
         XCTAssertEqual(AppLanguage.text("Đang dùng mẫu: {0}", "Gốc {1}"), "Using template: Gốc {1}")
         XCTAssertEqual(AppLanguage.direction(180), "S")

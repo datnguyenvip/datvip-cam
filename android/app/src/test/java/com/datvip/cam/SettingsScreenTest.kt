@@ -35,6 +35,12 @@ class SettingsScreenTest {
         val root = screen.createContent()
         context.setContentView(root)
         assertSame(root, root.findFocus())
+        val guides = root.findViewWithTag<Switch>("compositionGuides")
+        assertFalse(guides.isChecked)
+        guides.isChecked = true
+        assertTrue(prefs.getBoolean("compositionGuides", false))
+        assertTrue(StampSettingsScreen(context, prefs).createContent().findViewWithTag<Switch>("compositionGuides").isChecked)
+
         for (shortcut in listOf("Khung", "Nền", "Logo", "Mẫu")) assertNotNull(root.findViewWithTag<Button>("shortcut-$shortcut"))
         val size = root.findViewWithTag<SeekBar>("stampDisplaySize")
         assertNotNull(size); size.progress = 0

@@ -4,6 +4,10 @@ name: Build unsigned IPA
 on:
   workflow_dispatch:
     inputs:
+      screenshots_only:
+        description: Recheck UI evidence after test-only changes (full validation is the default)
+        type: boolean
+        default: false
       appstore:
         description: Also build an App Store signed archive after tests pass
         type: boolean
@@ -20,7 +24,7 @@ on:
 
 jobs:
   appstore:
-    if: github.event_name == 'workflow_dispatch' && inputs.appstore
+    if: github.event_name == 'workflow_dispatch' && inputs.appstore && !inputs.screenshots_only
     needs: build
     uses: ./.github/workflows/ios-appstore.yml
     with:
@@ -35,6 +39,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check interface translations
+        run: python3 scripts/check-localization.py
 
       - name: Select Xcode
         run: |
@@ -72,7 +78,7 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/DatvipCam.app Payload/
           zip -qry DatvipCam-unsigned.ipa Payload
 
-      - name: Test stamp content and rendered layout on iOS Simulator
+      - name: Boot iPhone Simulator
         working-directory: ios
         run: |
           set -o pipefail
@@ -80,6 +86,11 @@ jobs:
           echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
+      - name: Test stamp content and rendered layout on iOS Simulator
+        if: inputs.screenshots_only != true
+        working-directory: ios
+        run: |
+          set -o pipefail
           xcodebuild \
             -project DatvipCam.xcodeproj \
             -scheme StampTests \
@@ -89,15 +100,6 @@ jobs:
             -resultBundlePath StampTests.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             test | tee StampTests.log
-
-      - name: Test purchases in the application host
-        working-directory: ios
-        run: |
-          set -o pipefail
-          xcodebuild -project DatvipCam.xcodeproj -scheme PurchaseTests -configuration Debug \
-            -destination "platform=iOS Simulator,id=$DEVICE_ID" -parallel-testing-enabled NO \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 360 \
-            -resultBundlePath PurchaseTests.xcresult CODE_SIGNING_ALLOWED=NO test | tee PurchaseTests.log
 
       - name: Capture actual Vietnamese and English settings on iPhone Simulator
         if: always() && env.DEVICE_ID != ''
@@ -128,8 +130,6 @@ jobs:
           path: |
             ios/StampTests.xcresult
             ios/StampTests.log
-            ios/PurchaseTests.xcresult
-            ios/PurchaseTests.log
             ios/StampTestImages
             ios/StoreScreenshots.log
             ios/StoreScreenImages

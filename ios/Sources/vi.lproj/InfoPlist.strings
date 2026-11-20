@@ -2,4 +2,4 @@
 "NSCameraUsageDescription" = "Camera HT cần camera để chụp ảnh và quay video.";
 "NSLocationWhenInUseUsageDescription" = "Camera HT dùng vị trí để đóng dấu GPS và tra cứu địa chỉ.";
 "NSMicrophoneUsageDescription" = "Camera HT cần micro để quay video có âm thanh.";
-"NSPhotoLibraryAddUsageDescription" = "Camera HT lưu ảnh và video vào thư viện.";
+"NSPhotoLibraryAddUsageDescription" = "Camera HT lưu ảnh và video vào thư viện.";"NSPhotoLibraryUsageDescription" = "Camera HT kiểm tra ảnh và video đã lưu từ ứng dụng còn trong thư viện Ảnh hay không.";

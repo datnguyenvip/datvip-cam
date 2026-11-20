@@ -8,7 +8,7 @@ enum AppLanguage {
         return Locale.preferredLanguages.first?.hasPrefix("vi") == true ? "vi" : "en"
     }
     static var locale: Locale { Locale(identifier: code == "vi" ? "vi_VN" : "en_US") }
-    static var name: String { code == "vi" ? "Camera HT" : "Field Camera" }
+    static var name: String { code == "vi" ? "Camera HT – Hiện Trường" : "Field Camera – GPS Stamp" }
     private static let english: [String: String] = {
         guard let url = Bundle.main.url(forResource: "ui-en", withExtension: "json") ?? Bundle(for: LanguageSelection.self).url(forResource: "ui-en", withExtension: "json"),
               let data = try? Data(contentsOf: url),

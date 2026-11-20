@@ -236,5 +236,21 @@
   "Mua một lần: {0}": "One-time purchase: {0}",
   "Mua hàng không thành công": "Purchase failed",
   "Mua hàng đang chờ xác nhận": "Purchase is awaiting approval",
-  "Xong": "Done"
+  "Xong": "Done",
+  "Căn chỉnh khung hình": "Composition Guides",
+  "Bật lưới 3×3 và cân bằng. Chỉ hiển thị trên khung ngắm, không lưu vào ảnh/video.": "Show the 3×3 grid and level in the viewfinder only. Guides are not saved in photos or videos.",
+  "Hủy": "Cancel",
+  "Xóa": "Delete",
+  "Không thể xóa một số tệp.": "Some files could not be deleted.",
+  "Xóa các ảnh/video đã chọn khỏi Camera HT?": "Delete the selected photos and videos from Camera HT?",
+  "Xóa ảnh/video": "Delete photos/videos",
+  "Đã xóa": "Deleted",
+  "Khảo sát hiện trường": "Site inspection",
+  "Xóa ảnh/video đã chọn?": "Delete selected photos and videos?",
+  "Không lưu được mẫu. Vui lòng thử lại.": "Cannot save template. Please try again.",
+  "Đã xác minh xóa ảnh/video": "Media deletion verified",
+  "Chưa xóa hoặc chưa xác minh được: {0}": "Media not deleted or not verifiable: {0}",
+  "Đã hủy xóa ảnh/video": "Media deletion cancelled",
+  "Địa điểm khảo sát": "Survey location",
+  "Lam": "Blue"
 }

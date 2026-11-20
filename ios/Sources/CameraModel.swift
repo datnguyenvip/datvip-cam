@@ -229,15 +229,6 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
             try? data.write(to: indexURL, options: .atomic)
         }
     }
-    override init() {
-        super.init()
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            let o = UIDevice.current.orientation
-            if o == .portrait || o == .portraitUpsideDown || o == .landscapeLeft || o == .landscapeRight { self?.devOrient = o }
-        }
-    }
-
     // MARK: Camera
     func start() {
         AVCaptureDevice.requestAccess(for: .video) { ok in

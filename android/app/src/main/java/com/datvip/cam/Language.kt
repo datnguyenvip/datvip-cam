@@ -26,5 +26,5 @@ object Language {
         val names = if (isVietnamese(context)) listOf("B", "ĐB", "Đ", "ĐN", "N", "TN", "T", "TB") else listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
         return names[Math.round(degrees / 45f) % 8]
     }
-    fun name(context: Context) = if (isVietnamese(context)) "Camera HT" else "Field Camera"
+    fun name(context: Context) = if (isVietnamese(context)) "Camera HT – Hiện Trường" else "Field Camera – GPS Stamp"
 }
