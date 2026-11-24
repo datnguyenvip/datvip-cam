@@ -3,6 +3,33 @@ import XCTest
 final class StoreScreenshotsTests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
 
+    func testCameraToolsSettingsAndCompass() {
+        let app = XCUIApplication()
+        app.launchEnvironment["CAMERA_HT_UI_TESTING"] = "1"
+        app.launchEnvironment["CAMERA_HT_TEST_ANGLE"] = "0"
+        app.launchArguments = ["-interfaceLanguage", "vi"]
+        app.launch(); dismissPermissionAlerts()
+        let bubble=app.buttons["bubble-level"]
+        XCTAssertTrue(bubble.waitForExistence(timeout:20)); XCTAssertTrue(bubble.isHittable);bubble.tap()
+        let settings=app.buttons["level-settings"]
+        XCTAssertTrue(settings.isHittable);settings.tap()
+        let slider=app.sliders["level-length"]
+        XCTAssertTrue(slider.waitForExistence(timeout:10));slider.adjust(toNormalizedSliderPosition:0.25)
+        app.buttons["#00FFFF"].tap()
+        var attachment=XCTAttachment(screenshot:app.screenshot());attachment.name="camera-tools-style";attachment.lifetime = .keepAlways;add(attachment)
+        app.buttons["Xong"].tap()
+        app.buttons["feng-shui-compass"].tap()
+        XCTAssertTrue(app.staticTexts["La bàn phong thủy"].waitForExistence(timeout:10))
+        XCTAssertTrue(app.buttons["Vòng la bàn"].exists)
+        app.buttons["Vòng la bàn"].tap();app.buttons["Vòng la bàn"].tap()
+        attachment=XCTAttachment(screenshot:app.screenshot());attachment.name="camera-tools-compass";attachment.lifetime = .keepAlways;add(attachment)
+        app.buttons["Xong"].tap()
+        XCTAssertTrue(settings.waitForExistence(timeout:10));settings.tap()
+        XCTAssertTrue(app.sliders["level-length"].exists)
+        XCTAssertTrue(app.buttons["#00FFFF"].exists)
+        app.buttons["Xong"].tap();app.terminate()
+    }
+
     func testLevelToggleInBothLanguagesAndAllLayouts() {
         for (language, angle) in [("vi", "0"), ("en", "90"), ("vi", "-90")] {
             let app = XCUIApplication()

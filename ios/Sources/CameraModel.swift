@@ -39,6 +39,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     @Published private(set) var zoom = 1.0
     @Published private(set) var maxZoom = 1.0
     @Published private(set) var compassHeading: Double?
+    @Published private(set) var compassTrueHeading: Double?
     @Published private(set) var compassReliable = false
     private(set) var compassSampleAt = Date.distantPast
     private var toolTilt: Double?
@@ -696,6 +697,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading h: CLHeading) {
         heading = h.trueHeading >= 0 ? h.trueHeading : h.magneticHeading
         compassHeading = h.headingAccuracy >= 0 ? h.magneticHeading : nil
+        compassTrueHeading = h.headingAccuracy >= 0 && h.trueHeading >= 0 ? h.trueHeading : nil
         compassReliable = h.headingAccuracy >= 0 && h.headingAccuracy <= 15
         compassSampleAt = Date()
     }

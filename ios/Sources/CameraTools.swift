@@ -103,7 +103,7 @@ struct FengShuiCompass: View {
     @State private var locked: Double?
     @State private var recenter = 0
     @State private var now = Date()
-    private var heading: Double? { locked ?? (now.timeIntervalSince(model.compassSampleAt) < 2 ? model.compassHeading : nil) }
+    private var heading: Double? { locked ?? (now.timeIntervalSince(model.compassSampleAt) < 2 ? (satellite ? model.compassTrueHeading : model.compassHeading) : nil) }
     var body: some View {
         NavigationView {
             VStack(spacing: 8) {
@@ -116,12 +116,12 @@ struct FengShuiCompass: View {
                         if dial { CompassDial(heading: heading).frame(width: min(g.size.width*0.84,g.size.height*0.82),height:min(g.size.width*0.84,g.size.height*0.82)).allowsHitTesting(false) }
                     }
                 }
-                Text(AppLanguage.text("Bắc ở trên · Hướng từ")).font(.caption)
+                Text(satellite ? AppLanguage.text("Bắc thật ở trên") : AppLanguage.text("Bắc ở trên · Hướng từ")).font(.caption)
                 Text(AppLanguage.text(model.compassReliable ? "Giữ điện thoại nằm phẳng khi đọc hướng." : "Tránh kim loại, di chuyển máy hình số 8 để hiệu chỉnh."))
                     .font(.caption).multilineTextAlignment(.center)
                 HStack {
                     Button(AppLanguage.text("Vòng la bàn")) { dial.toggle() }.buttonStyle(.bordered)
-                    Button(AppLanguage.text("Vệ tinh")) { satellite.toggle() }.buttonStyle(.bordered)
+                    Button(AppLanguage.text("Vệ tinh")) { locked = nil; satellite.toggle() }.buttonStyle(.bordered)
                 }
                 HStack {
                     Button(AppLanguage.text(locked == nil ? "Khóa hướng" : "Mở khóa")) { locked = locked == nil ? heading : nil }

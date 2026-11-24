@@ -282,5 +282,6 @@
   "Mở khóa": "Unlock",
   "Vị trí của tôi": "My location",
   "Chưa cấu hình Google Maps. La bàn vẫn dùng được không có mạng.": "Google Maps is not configured. The compass still works offline.",
-  "Thước cân bằng: lưu đường chuẩn và góc vào ảnh và video. Bọt thủy hiển thị riêng trên khung ngắm. Chỉ hỗ trợ kiểm tra sơ bộ; không thay thế thiết bị trắc địa.": "Level crosshair: reference lines and angles are saved in photos and videos. The bubble level is preview only. For preliminary checks; does not replace surveying instruments."
+  "Thước cân bằng: lưu đường chuẩn và góc vào ảnh và video. Bọt thủy hiển thị riêng trên khung ngắm. Chỉ hỗ trợ kiểm tra sơ bộ; không thay thế thiết bị trắc địa.": "Level crosshair: reference lines and angles are saved in photos and videos. The bubble level is preview only. For preliminary checks; does not replace surveying instruments.",
+  "Bắc thật ở trên": "True north up"
 }

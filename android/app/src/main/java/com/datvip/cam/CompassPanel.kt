@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
+import android.hardware.GeomagneticField
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -29,10 +30,13 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
     private lateinit var state: TextView
     private var centered=false
     private val tick=object:Runnable { override fun run() {
-        val h=if(lockRequested) locked else heading()
+        val magnetic=heading()
+        val satellite=mapView?.visibility==android.view.View.VISIBLE
+        val actual=if(satellite) location()?.let { l -> magnetic?.let { CompassMath.normalize(it+GeomagneticField(l.latitude.toFloat(),l.longitude.toFloat(),l.altitude.toFloat(),System.currentTimeMillis()).declination) } } else magnetic
+        val h=if(lockRequested) locked else actual
         dial.heading=h
         readout.text=if(h==null) Language.text(context,"Chưa có hướng la bàn") else String.format(java.util.Locale.US,"%.1f° · %s\n↔ %.1f° · %s",h,CompassMath.mountain(h),CompassMath.normalize(h+180),CompassMath.mountain(h+180))
-        state.text=Language.text(context,"Bắc ở trên · Hướng từ")+"\n"+if(!accurate()) Language.text(context,"Tránh kim loại, di chuyển máy hình số 8 để hiệu chỉnh.") else Language.text(context,"Giữ điện thoại nằm phẳng khi đọc hướng.")
+        state.text=(if(satellite) Language.text(context,"Bắc thật ở trên") else Language.text(context,"Bắc ở trên · Hướng từ"))+"\n"+if(!accurate()) Language.text(context,"Tránh kim loại, di chuyển máy hình số 8 để hiệu chỉnh.") else Language.text(context,"Giữ điện thoại nằm phẳng khi đọc hướng.")
         if(!centered) centerMap()
         handler.postDelayed(this,100)
     } }
@@ -64,13 +68,13 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
         button(Language.text(context,"Vệ tinh")) {
             val view=mapView
             if(view==null) AlertDialog.Builder(context).setMessage(Language.text(context,"Chưa cấu hình Google Maps. La bàn vẫn dùng được không có mạng.")).setPositiveButton(Language.text(context,"Xong"),null).show()
-            else { view.visibility=if(view.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE; if(view.visibility==android.view.View.VISIBLE) centerMap(true) }
+            else { lockRequested=false; locked=null; view.visibility=if(view.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE; if(view.visibility==android.view.View.VISIBLE) centerMap(true) }
         }
         root.addView(controls)
         val footer=LinearLayout(context)
         footer.addView(Button(context).apply { text=Language.text(context,"Khóa hướng"); setOnClickListener {
-            if(!lockRequested && heading()==null) return@setOnClickListener
-            lockRequested=!lockRequested; locked=if(lockRequested) heading() else null
+            if(!lockRequested && dial.heading==null) return@setOnClickListener
+            lockRequested=!lockRequested; locked=if(lockRequested) dial.heading else null
             text=if(lockRequested) Language.text(context,"Mở khóa") else Language.text(context,"Khóa hướng")
         } },LinearLayout.LayoutParams(0,-2,1f))
         footer.addView(Button(context).apply { text=Language.text(context,"Vị trí của tôi"); setOnClickListener { centerMap(true) } },LinearLayout.LayoutParams(0,-2,1f))
