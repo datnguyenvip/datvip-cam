@@ -376,7 +376,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             })
         }
         zoomBar.addView(zoomLabel); zoomBar.addView(zoomSlider,LinearLayout.LayoutParams(0,dp(44),1f))
-        stage.addView(zoomBar,FrameLayout.LayoutParams(dp(180),dp(44),Gravity.BOTTOM or Gravity.START).apply { bottomMargin=dp(8); leftMargin=dp(8) })
+
         val side = GridLayout(this).apply { columnCount = 2 }
         val levelButton = mini("⊕") {}.apply {
             fun updateState() {
@@ -431,6 +431,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         modes.addView(photoModeButton); modes.addView(videoModeButton)
         cameraModes = modes
         cameraControls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(22)) }
+        cameraControls.addView(zoomBar, LinearLayout.LayoutParams(-1, dp(44)))
         cameraControls.addView(modes, LinearLayout.LayoutParams(-1, -2))
 
         fun chip(t: String, f: () -> Unit) = TextView(this).apply {

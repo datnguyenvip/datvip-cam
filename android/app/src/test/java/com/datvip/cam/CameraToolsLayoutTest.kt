@@ -36,6 +36,10 @@ class CameraToolsLayoutTest {
         }
         val toggle=descendants(root).first { it.contentDescription==Language.text(activity,"Bọt thủy") }
         toggle.performClick()
+        root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1280,View.MeasureSpec.EXACTLY))
+        root.layout(0,0,720,1280)
+        val bubble=descendants(root).filterIsInstance<BubbleLevelView>().single()
+        assertEquals(View.VISIBLE,bubble.visibility);assertTrue(bubble.width>0 && bubble.height>0)
         val bitmap=Bitmap.createBitmap(720,1280,Bitmap.Config.ARGB_8888);root.draw(Canvas(bitmap))
         val directory=File("build/reports/camera-tools").apply { mkdirs() }
         File(directory,"camera-controls.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }

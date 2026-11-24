@@ -117,6 +117,7 @@ struct ContentView: View {
                 landscapeControls
             } else {
                 VStack(spacing: 0) {
+                    zoomBar
                     modeBar
                     HStack {
                         galleryButton
@@ -128,6 +129,14 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var zoomBar: some View {
+        HStack(spacing: 8) {
+            Button(String(format:"%.1f×",m.zoom)) { m.setZoom(1) }.font(.caption.monospacedDigit())
+            Slider(value: Binding(get: { m.zoom }, set: { m.setZoom($0) }), in: 1...max(1.01,m.maxZoom))
+                .disabled(m.maxZoom <= 1).accessibilityLabel(AppLanguage.text("Zoom ảnh và video"))
+        }.padding(.horizontal,8).frame(height:44).background(controlBackground)
     }
 
     private var controlBackground: Color { Color(red: 0.04, green: 0.08, blue: 0.10) }
@@ -146,8 +155,9 @@ struct ContentView: View {
             .accessibilityIdentifier("camera-shutter")
     }
     private var landscapeControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             HStack(spacing: 0) { galleryButton; settingsButton }
+            zoomBar
             Spacer(minLength: 0)
             captureButton
             Spacer(minLength: 0)
@@ -203,13 +213,6 @@ struct ContentView: View {
                             Text(String(format: "%d:%02d", m.recSeconds / 60, m.recSeconds % 60)).font(.system(size: 17, weight: .bold, design: .monospaced))
                         }.padding(.horizontal, 12).padding(.vertical, 5).background(Color.black.opacity(0.55)).clipShape(Capsule()).padding(.top, 10)
                     }
-                }
-                .overlay(alignment: .bottomLeading) {
-                    HStack(spacing: 8) {
-                        Button(String(format:"%.1f×",m.zoom)) { m.setZoom(1) }.font(.caption.monospacedDigit())
-                        Slider(value: Binding(get: { m.zoom }, set: { m.setZoom($0) }), in: 1...max(1.01,m.maxZoom))
-                            .disabled(m.maxZoom <= 1).accessibilityLabel(AppLanguage.text("Zoom ảnh và video"))
-                    }.padding(8).frame(width: min(220,g.size.width*0.60)).background(Color.black.opacity(0.65)).clipShape(Capsule()).padding(8)
                 }
                 .overlay(alignment: .bottomTrailing) {
                     LazyVGrid(columns: [GridItem(.fixed(44)), GridItem(.fixed(44))], spacing: 8) {
