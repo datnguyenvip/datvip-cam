@@ -84,6 +84,8 @@ struct SatelliteMap: UIViewRepresentable {
     final class Coordinator { var initialized = false; var recenter = -1 }
     func makeUIView(context: Context) -> MKMapView {
         let view = MKMapView(); view.mapType = .hybrid; view.isRotateEnabled = false; view.isPitchEnabled = false
+        view.showsUserLocation = true
+        view.setRegion(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 16, longitude: 106), latitudinalMeters: 1_500_000, longitudinalMeters: 1_500_000), animated: false)
         return view
     }
     func updateUIView(_ view: MKMapView, context: Context) {
@@ -98,7 +100,7 @@ struct SatelliteMap: UIViewRepresentable {
 struct FengShuiCompass: View {
     @ObservedObject var model: CameraModel
     @Environment(\.dismiss) private var dismiss
-    @State private var satellite = false
+    @State private var satellite = true
     @State private var dial = true
     @State private var locked: Double?
     @State private var recenter = 0
@@ -113,7 +115,7 @@ struct FengShuiCompass: View {
                     ZStack {
                         Color.black
                         if satellite { SatelliteMap(coordinate: model.loc?.coordinate, recenter: recenter) }
-                        if dial { CompassDial(heading: heading).frame(width: min(g.size.width*0.84,g.size.height*0.82),height:min(g.size.width*0.84,g.size.height*0.82)).allowsHitTesting(false) }
+                        if dial { CompassDial(heading: heading, overMap: satellite).frame(width: min(g.size.width*0.84,g.size.height*0.82),height:min(g.size.width*0.84,g.size.height*0.82)).allowsHitTesting(false) }
                     }
                 }
                 Text(satellite ? AppLanguage.text("Bắc thật ở trên") : AppLanguage.text("Bắc ở trên · Hướng từ")).font(.caption)
@@ -139,11 +141,13 @@ struct FengShuiCompass: View {
 
 struct CompassDial: View {
     let heading: Double?
+    var overMap = false
     var body: some View {
         Canvas { c, size in
             let r = min(size.width,size.height)*0.48; let center=CGPoint(x:size.width/2,y:size.height/2)
             func point(_ degree:Double,_ radius:Double) -> CGPoint { let a=(degree-90) * .pi/180; return CGPoint(x:center.x+cos(a)*radius,y:center.y+sin(a)*radius) }
-            c.fill(Path(ellipseIn:CGRect(x:center.x-r,y:center.y-r,width:r*2,height:r*2)),with:.color(.black.opacity(0.78)))
+            c.fill(Path(ellipseIn:CGRect(x:center.x-r,y:center.y-r,width:r*2,height:r*2)),with:.color(.black.opacity(overMap ? 0.10 : 0.78)))
+            if overMap { c.addFilter(.shadow(color: .black, radius: 2)) }
             for fraction in [1.0,0.70] { c.stroke(Path(ellipseIn:CGRect(x:center.x-r*fraction,y:center.y-r*fraction,width:r*2*fraction,height:r*2*fraction)),with:.color(.yellow),lineWidth:1) }
             for i in 0..<120 {
                 var line=Path(); line.move(to:point(Double(i)*3,r*(i%5 == 0 ? 0.90 : 0.95))); line.addLine(to:point(Double(i)*3,r))

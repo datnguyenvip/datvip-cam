@@ -16,7 +16,7 @@ android {
         applicationId = "com.datvip.cam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 11
+        versionCode = 12
         versionName = "1.2.0"
         manifestPlaceholders["CAMERA_HT_MAPS_KEY"] = providers.gradleProperty("CAMERA_HT_MAPS_KEY")
             .orElse(providers.environmentVariable("CAMERA_HT_MAPS_KEY"))
