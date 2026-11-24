@@ -49,7 +49,14 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("compositionGuides") private var guides = false
     @AppStorage("levelCrosshair") private var levelEnabled = false
+    @AppStorage("bubbleLevel") private var bubbleEnabled = false
+    @AppStorage("levelColor") private var levelColor = Int(0xFFFFFF00)
+    @AppStorage("levelLength") private var levelLength = 1.0
+    @State private var showLevelSettings = false
+    @State private var showCompass = false
+    @State private var pinchStart: Double?
     @State private var levelWarning = false
+    private var levelStyle: LevelStyle { LevelStyle(color: UInt32(truncatingIfNeeded: levelColor), length: levelLength) }
     @State private var showSettings = false
     @State private var showNote = false
     @State private var showGallery = false
@@ -79,6 +86,9 @@ struct ContentView: View {
         }
         .onAppear { motion.start(); m.previewAspect = 3.0 / 4.0; m.start() }
         .onDisappear { motion.stop() }
+        .sheet(isPresented: $showLevelSettings) { LevelToolsSettings() }
+        .sheet(isPresented: $showCompass) { FengShuiCompass(model: m) }
+        .onChange(of: motion.sampleTime) { _ in m.updateTools(tilt: motion.captureTilt, angle: motion.angle) }
         .alert(AppLanguage.text("Thước cân bằng"), isPresented: $levelWarning) {
             Button("OK", role: .cancel) {}
         } message: { Text(AppLanguage.text("Chưa xác định được phương chuẩn")) }
@@ -107,6 +117,7 @@ struct ContentView: View {
                 landscapeControls
             } else {
                 VStack(spacing: 0) {
+                    zoomBar
                     modeBar
                     HStack {
                         galleryButton
@@ -118,6 +129,14 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var zoomBar: some View {
+        HStack(spacing: 8) {
+            Button(String(format:"%.1f×",m.zoom)) { m.setZoom(1) }.font(.caption.monospacedDigit())
+            Slider(value: Binding(get: { m.zoom }, set: { m.setZoom($0) }), in: 1...max(1.01,m.maxZoom))
+                .disabled(m.maxZoom <= 1).accessibilityLabel(AppLanguage.text("Zoom ảnh và video"))
+        }.padding(.horizontal,8).frame(height:44).background(controlBackground)
     }
 
     private var controlBackground: Color { Color(red: 0.04, green: 0.08, blue: 0.10) }
@@ -136,8 +155,9 @@ struct ContentView: View {
             .accessibilityIdentifier("camera-shutter")
     }
     private var landscapeControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             HStack(spacing: 0) { galleryButton; settingsButton }
+            zoomBar
             Spacer(minLength: 0)
             captureButton
             Spacer(minLength: 0)
@@ -163,15 +183,20 @@ struct ContentView: View {
                             .frame(width: fw, height: fh)
                         if guides { CompositionGuides(tilt: levelEnabled ? nil : motion.tilt) }
                         if levelEnabled {
-                            LevelCrosshairView(tilt: motion.tilt).allowsHitTesting(false)
+                            LevelCrosshairView(tilt: motion.tilt, style: levelStyle).allowsHitTesting(false)
                             if motion.tilt == nil {
                                 Text(AppLanguage.text("Chưa xác định được phương chuẩn"))
                                     .font(.caption).foregroundColor(.yellow).padding(6).background(Color.black.opacity(0.8))
                             }
                         }
+                        if bubbleEnabled { BubbleLevel(x: motion.gravityX, y: motion.gravityY, angle: motion.angle) }
                         TimelineView(.periodic(from: .now, by: 1)) { tl in overlay(tl.date, fw, fh) }
                     }
                     .frame(width: fw, height: fh).clipped()
+                    .gesture(MagnificationGesture().onChanged { value in
+                        if pinchStart == nil { pinchStart = m.zoom }
+                        m.setZoom((pinchStart ?? m.zoom) * value)
+                    }.onEnded { _ in pinchStart = nil })
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("camera-viewport")
                 }
@@ -190,8 +215,17 @@ struct ContentView: View {
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    VStack(spacing: 10) {
-                        Button { levelEnabled.toggle() } label: {
+                    LazyVGrid(columns: [GridItem(.fixed(44)), GridItem(.fixed(44))], spacing: 8) {
+                        mini("circle.dotted") { bubbleEnabled.toggle() }
+                            .accessibilityLabel(AppLanguage.text("Bọt thủy"))
+                            .accessibilityIdentifier("bubble-level")
+                        mini("safari") { if !m.isRecording { showCompass = true } }
+                            .accessibilityLabel(AppLanguage.text("La bàn phong thủy"))
+                            .accessibilityIdentifier("feng-shui-compass")
+                        mini("slider.horizontal.3") { if !m.isRecording { showLevelSettings = true } }
+                            .accessibilityLabel(AppLanguage.text("Tùy chỉnh thước"))
+                            .accessibilityIdentifier("level-settings")
+                        Button { if !m.isRecording { levelEnabled.toggle() } } label: {
                             Image(systemName: "scope").font(.system(size: 16))
                                 .foregroundColor(levelEnabled ? .yellow : .white)
                                 .frame(width: 44, height: 44)
@@ -206,9 +240,10 @@ struct ContentView: View {
                             .accessibilityValue(levelEnabled ? AppLanguage.text("Bật") : AppLanguage.text("Tắt"))
                             .accessibilityAddTraits(levelEnabled ? .isSelected : [])
                             .accessibilityIdentifier("level-crosshair")
+                            .onLongPressGesture { if !m.isRecording { showLevelSettings = true } }
                         mini("pencil") { showNote = true }
                         mini("mappin.and.ellipse") { if let l = m.loc, let u = URL(string: m.dirLink(l)) { UIApplication.shared.open(u) } }
-                    }.padding(10)
+                    }.frame(width: 96).padding(10)
                 }
             }
     }
@@ -344,7 +379,7 @@ struct SettingsView: View {
                     Toggle(AppLanguage.text("Tiếng chụp ảnh"), isOn: $shutterSound)
                     Toggle(AppLanguage.text("Căn chỉnh khung hình"), isOn: $guides)
                         .accessibilityIdentifier("composition-guides")
-                    Text(AppLanguage.text("Thước cân bằng: bật bằng nút chữ thập trên camera; lưu đường chuẩn và góc vào ảnh, không lưu vào video. Chỉ hỗ trợ kiểm tra sơ bộ; lưu ý sai lệch phối cảnh, không thay thế thiết bị trắc địa."))
+                    Text(AppLanguage.text("Thước cân bằng: lưu đường chuẩn và góc vào ảnh và video. Bọt thủy hiển thị riêng trên khung ngắm. Chỉ hỗ trợ kiểm tra sơ bộ; không thay thế thiết bị trắc địa."))
                         .font(.caption).foregroundColor(.secondary)
                     Text(AppLanguage.text("Bật lưới 3×3 và cân bằng. Chỉ hiển thị trên khung ngắm, không lưu vào ảnh/video."))
                         .font(.caption).foregroundColor(.secondary)

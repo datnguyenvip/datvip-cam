@@ -38,13 +38,17 @@ struct CameraOrientationFilter {
 final class CameraMotion: ObservableObject {
     @Published private(set) var angle = 0.0
     @Published private(set) var tilt: Double?
+    @Published private(set) var gravityX: Double?
+    @Published private(set) var gravityY: Double?
+    @Published private(set) var sampleTime = 0.0
     private let manager = CMMotionManager()
     private var sampleAt = Date.distantPast
     var captureTilt: Double? { Date().timeIntervalSince(sampleAt) <= 0.5 ? tilt : nil }
     private func update(_ gravity: CMAcceleration, time: Double) {
+        gravityX = gravity.x; gravityY = gravity.y
         filter.update(x: gravity.x, y: gravity.y, time: time)
         if angle != filter.angle { angle = filter.angle }
-        tilt = filter.tilt; sampleAt = Date()
+        tilt = filter.tilt; sampleAt = Date(); sampleTime = time
     }
     private var filter = CameraOrientationFilter()
     func start() {
@@ -80,7 +84,7 @@ final class CameraMotion: ObservableObject {
         tilt = 0
     }
     #endif
-    func stop() { manager.stopDeviceMotionUpdates(); manager.stopAccelerometerUpdates(); tilt = nil; sampleAt = .distantPast }
+    func stop() { manager.stopDeviceMotionUpdates(); manager.stopAccelerometerUpdates(); tilt = nil; gravityX = nil; gravityY = nil; sampleAt = .distantPast }
     deinit { manager.stopDeviceMotionUpdates(); manager.stopAccelerometerUpdates() }
     var orientation: UIDeviceOrientation {
         switch angle { case 90: return .landscapeLeft; case -90: return .landscapeRight

@@ -14,3 +14,4 @@ ios/*.ipa
 *.keystore
 *.p12
 signing.properties
+maps.properties

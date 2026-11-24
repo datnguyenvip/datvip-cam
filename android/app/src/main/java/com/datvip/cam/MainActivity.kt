@@ -46,6 +46,8 @@ import android.util.TypedValue
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
+import android.view.ScaleGestureDetector
+import androidx.camera.core.Camera
 import android.view.Gravity
 import android.view.OrientationEventListener
 import android.view.Surface
@@ -110,6 +112,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private lateinit var photoModeButton: TextView
     private lateinit var videoModeButton: TextView
     private lateinit var recordStatus: TextView
+    private var boundCamera: Camera? = null
+    private var zoomRatio = 1f
+    private lateinit var zoomLabel: TextView
+    private lateinit var zoomSlider: SeekBar
+    private lateinit var bubble: BubbleLevelView
+    private var compassPanel: CompassPanel? = null
+    private var compassHeading: Float? = null
+    private var compassAccurate = false
+    private var compassSampleAt = 0L
+    private var recordingLevel = false
+    private var recordingMirrored = false
+    private var recordingAngle = 0
+    private var recordingStyle = LevelStyle()
     private var videoMode = false
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
@@ -125,6 +140,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var videoLandscape = false
     private var videoCode = ""
     private var lastVideoSecond = -1L
+    private var videoClockUs = 0L
+    private var videoClockElapsed = 0L
     private var recoveryChecked = false
     private fun videoBusy() = recordPending || recording != null || videoProcessing
     private lateinit var pv: PreviewView
@@ -318,6 +335,16 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         frame.addView(pv, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         guides = CompositionGuidesView(this).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
         frame.addView(guides, FrameLayout.LayoutParams(-1, -1))
+        guides.style = LevelStyle.read(sp)
+        bubble = BubbleLevelView(this).apply {
+            visibility = if (sp.getBoolean("bubbleLevel", false)) View.VISIBLE else View.GONE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        frame.addView(bubble, FrameLayout.LayoutParams(-1, -1))
+        val pinch = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean { setZoom(zoomRatio * detector.scaleFactor); return true }
+        })
+        pv.setOnTouchListener { _, event -> pinch.onTouchEvent(event); true }
         layer = FrameLayout(this)
         frame.addView(layer, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         stampOverlay = StampOverlayView(this)
@@ -337,7 +364,20 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x99000000.toInt()) }
             setOnClickListener { f() }
         }
-        val side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val zoomBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(dp(8),0,dp(8),0); setBackgroundColor(0x99000000.toInt()) }
+        zoomLabel = TextView(this).apply { text="1.0×"; setTextColor(Color.WHITE); textSize=14f; setPadding(dp(8),0,dp(8),0); contentDescription=Language.text(this@MainActivity,"Mức zoom"); setOnClickListener { setZoom(1f) } }
+        zoomSlider = SeekBar(this).apply { max=1000; contentDescription=Language.text(this@MainActivity,"Zoom ảnh và video")
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, user: Boolean) {
+                    if (user) boundCamera?.cameraInfo?.zoomState?.value?.let { z -> setZoom(z.minZoomRatio+(z.maxZoomRatio-z.minZoomRatio)*progress/1000f) }
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+        }
+        zoomBar.addView(zoomLabel); zoomBar.addView(zoomSlider,LinearLayout.LayoutParams(0,dp(44),1f))
+
+        val side = GridLayout(this).apply { columnCount = 2 }
         val levelButton = mini("⊕") {}.apply {
             fun updateState() {
                 val enabled = sp.getBoolean("levelCrosshair", false)
@@ -348,10 +388,25 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             }
             updateState()
             setOnClickListener {
+                if (videoBusy()) return@setOnClickListener
                 sp.edit().putBoolean("levelCrosshair", !sp.getBoolean("levelCrosshair", false)).apply()
                 updateState()
             }
         }
+        levelButton.setOnLongClickListener { if (!videoBusy()) showLevelSettings(); true }
+        side.addView(mini("◉") {
+            val enabled = !sp.getBoolean("bubbleLevel", false)
+            sp.edit().putBoolean("bubbleLevel", enabled).apply()
+            bubble.visibility = if (enabled) View.VISIBLE else View.GONE
+        }.apply { contentDescription = Language.text(this@MainActivity, "Bọt thủy") }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin=dp(10) })
+        side.addView(mini("☷") {
+            if (!videoBusy()) {
+                compassPanel?.dismiss()
+                compassPanel = CompassPanel(this, { compassHeading?.takeIf { android.os.SystemClock.elapsedRealtime()-compassSampleAt < 2000 } }, { compassAccurate }, { loc })
+                compassPanel?.show()
+            }
+        }.apply { contentDescription = Language.text(this@MainActivity, "La bàn phong thủy") }, LinearLayout.LayoutParams(dp(44),dp(44)).apply { bottomMargin=dp(10) })
+        side.addView(mini("⚒") { if (!videoBusy()) showLevelSettings() }.apply { contentDescription = Language.text(this@MainActivity,"Tùy chỉnh thước") }, LinearLayout.LayoutParams(dp(44),dp(44)).apply { bottomMargin=dp(10) })
         side.addView(levelButton, LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(10) })
         side.addView(mini("✎") { quickNote() }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { bottomMargin = dp(10) })
         side.addView(mini("📍") { locateDialog() }, LinearLayout.LayoutParams(dp(42), dp(42)))
@@ -376,6 +431,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         modes.addView(photoModeButton); modes.addView(videoModeButton)
         cameraModes = modes
         cameraControls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(22)) }
+        cameraControls.addView(zoomBar, LinearLayout.LayoutParams(-1, dp(44)))
         cameraControls.addView(modes, LinearLayout.LayoutParams(-1, -2))
 
         fun chip(t: String, f: () -> Unit) = TextView(this).apply {
@@ -465,17 +521,51 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                     QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD))
                 ).build()
                 val vc = VideoCapture.withOutput(recorder).apply { targetRotation = lastRot }
-                p.bindToLifecycle(this, sel, preview, vc)
+                boundCamera = p.bindToLifecycle(this, sel, preview, vc)
                 videoCapture = vc
             } else {
                 val group = UseCaseGroup.Builder().setViewPort(photoViewPort!!)
                     .addUseCase(preview).addUseCase(ic).build()
-                p.bindToLifecycle(this, sel, group)
+                boundCamera = p.bindToLifecycle(this, sel, group)
                 imageCapture = ic
             }
+            setZoom(zoomRatio)
         } catch (e: Exception) { toast(Language.text(this@MainActivity, "Không mở được camera: {0}", (e.message))) }
     }
 
+    private fun setZoom(value: Float) {
+        val camera = boundCamera ?: return
+        val state = camera.cameraInfo.zoomState.value ?: return
+        if (!value.isFinite()) return
+        zoomRatio=value.coerceIn(state.minZoomRatio,state.maxZoomRatio)
+        camera.cameraControl.setZoomRatio(zoomRatio).addListener({}, ContextCompat.getMainExecutor(this))
+        zoomLabel.text=String.format(Locale.US,"%.1f×",zoomRatio)
+        zoomSlider.isEnabled = state.maxZoomRatio > state.minZoomRatio
+        zoomSlider.progress=if (state.maxZoomRatio>state.minZoomRatio) ((zoomRatio-state.minZoomRatio)/(state.maxZoomRatio-state.minZoomRatio)*1000).toInt() else 0
+    }
+    private fun showLevelSettings() {
+        val content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(dp(20),dp(12),dp(20),dp(12)) }
+        val style=LevelStyle.read(sp)
+        val label=TextView(this).apply { text=Language.text(this@MainActivity,"Chiều dài thước: {0}%",(style.fraction*100).toInt()); setTextColor(Color.WHITE) }
+        content.addView(label)
+        content.addView(SeekBar(this).apply { max=85; progress=(style.fraction*100).toInt()-15
+            setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:SeekBar?,progress:Int,user:Boolean) { if(user) {
+                    sp.edit().putFloat("levelLength",(progress+15)/100f).apply(); guides.style=LevelStyle.read(sp)
+                    label.text=Language.text(this@MainActivity,"Chiều dài thước: {0}%",progress+15)
+                } }
+                override fun onStartTrackingTouch(bar:SeekBar?) {}
+                override fun onStopTrackingTouch(bar:SeekBar?) {}
+            }) })
+        val colors=LinearLayout(this)
+        for ((color,name) in listOf(Color.YELLOW to Language.text(this,"Vàng"),Color.WHITE to Language.text(this,"Trắng"),Color.RED to Language.text(this,"Đỏ"),Color.GREEN to Language.text(this,"Xanh lá"),Color.CYAN to Language.text(this,"Xanh ngọc"))) {
+            colors.addView(Button(this).apply { text="●"; setTextColor(color); contentDescription=name
+                setOnClickListener { sp.edit().putInt("levelColor",color).apply(); guides.style=LevelStyle.read(sp) } },LinearLayout.LayoutParams(0,dp(48),1f))
+        }
+        content.addView(colors)
+        content.addView(TextView(this).apply { text=Language.text(this@MainActivity,"Áp dụng cho khung ngắm, ảnh và video. Nhấn giữ nút chữ thập để chỉnh nhanh."); setTextColor(Color.WHITE) })
+        AlertDialog.Builder(this).setTitle(Language.text(this,"Tùy chỉnh thước")).setView(content).setPositiveButton(Language.text(this,"Xong"),null).show()
+    }
     private fun setVideoMode(on: Boolean) {
         if (videoBusy() || videoMode == on) return
         videoMode = on
@@ -514,6 +604,11 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         videoStart = Date(); videoLocation = loc?.let { Location(it) }
         videoLandscape = lastRot == Surface.ROTATION_90 || lastRot == Surface.ROTATION_270
         videoCode = code(videoStart)
+        recordingLevel = sp.getBoolean("levelCrosshair", false)
+        if (recordingLevel && (guides.tilt == null || android.os.SystemClock.elapsedRealtime()-levelSampleAt > 500)) {
+            toast(Language.text(this,"Chưa xác định được phương chuẩn")); return
+        }
+        recordingAngle=curDeg; recordingStyle=LevelStyle.read(sp); recordingMirrored=recordingLevel && front
         videoFrames.clear(); lastVideoSecond = -1
         addVideoFrame(0)
         capture.targetRotation = lastRot
@@ -524,11 +619,13 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             recording = pending.start(ContextCompat.getMainExecutor(this)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
+                        videoClockUs = 0; videoClockElapsed = android.os.SystemClock.elapsedRealtime()
                         recordPending = false
                         updateVideoUi(); recordStatus.text = "● 0:00"
                     }
                     is VideoRecordEvent.Status -> {
                         val durationUs = event.recordingStats.recordedDurationNanos / 1000
+                        videoClockUs = durationUs; videoClockElapsed = android.os.SystemClock.elapsedRealtime()
                         addVideoFrame(durationUs)
                         val sec = durationUs / 1_000_000
                         recordStatus.text = String.format(Locale.US, "● %d:%02d", sec / 60, sec % 60)
@@ -556,11 +653,13 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     }
 
     private fun addVideoFrame(timeUs: Long) {
+        val bucket = timeUs / 100_000
+        if (bucket <= lastVideoSecond) return
+        lastVideoSecond = bucket
         val second = timeUs / 1_000_000
-        if (second == lastVideoSecond) return
-        lastVideoSecond = second
         val line = lines(Date(videoStart.time + second * 1000))
-        videoFrames.add(VideoStampFrame(second * 1_000_000, Stamp(line.head, line.date, line.rows + Language.text(this@MainActivity, "Mã xác thực: {0}", (videoCode)))))
+        val tilt = if (recordingLevel && android.os.SystemClock.elapsedRealtime()-levelSampleAt <= 500) guides.tilt?.let { CompassMath.recordedTilt(it,curDeg,recordingAngle) } else null
+        videoFrames.add(VideoStampFrame(timeUs, Stamp(line.head, line.date, line.rows + Language.text(this@MainActivity, "Mã xác thực: {0}", (videoCode))),tilt,recordingStyle))
     }
 
     private fun stopVideo() {
@@ -585,7 +684,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val logoFile = File(raw.path + ".png")
         val job = try {
             if (!metadata.exists()) {
-                val data = JSONObject().put("date", date.time).put("landscape", landscape)
+                val data = JSONObject().put("date", date.time).put("landscape", landscape).put("mirrored",recordingMirrored)
                     .put("watermark", if (b("wmOn")) s("wm") else "")
                     .put("background", StampSettings.background(sp))
                     .put("stampSize", StampSettings.appearance(sp).size.toDouble())
@@ -595,7 +694,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 val timeline = JSONArray()
                 frames.forEach { frame -> timeline.put(JSONObject().put("time", frame.timeUs)
                     .put("head", frame.stamp.head ?: JSONObject.NULL).put("date", frame.stamp.date ?: JSONObject.NULL)
-                    .put("rows", JSONArray(frame.stamp.rows))) }
+                    .put("rows", JSONArray(frame.stamp.rows)).put("tilt",frame.tilt ?: JSONObject.NULL).put("levelColor",frame.style.color).put("levelLength",frame.style.fraction.toDouble())) }
                 data.put("frames", timeline)
                 logoBmp?.takeIf { b("logoOn") }?.let { logo -> logoFile.outputStream().use { logo.compress(Bitmap.CompressFormat.PNG, 100, it) } }
                 metadata.writeText(data.toString())
@@ -607,7 +706,10 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val frozenBackground = job.optInt("background", StampSettings.background(sp))
         val frozenAppearance = StampAppearance(frozenBackground,
             job.optDouble("stampSize", .75).toFloat().coerceIn(.5f, 1.2f), job.optDouble("logoOpacity", 1.0).toFloat().coerceIn(0f, 1f))
-        videoExporter.start(this, raw, output, landscape, frames, { bitmap, line -> stamp(bitmap, line, frozenWatermark, frozenLogo, frozenBackground, frozenAppearance) }, {
+        videoExporter.start(this, raw, output, landscape, job.optBoolean("mirrored",false), frames, { bitmap, frame ->
+            frame.tilt?.let { LevelCrosshair.draw(Canvas(bitmap),bitmap.width,bitmap.height,it,frame.style) }
+            stamp(bitmap, frame.stamp, frozenWatermark, frozenLogo, frozenBackground, frozenAppearance)
+        }, {
             ex.execute {
                 var uri: Uri? = null
                 try {
@@ -658,7 +760,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                         VideoStampFrame(frame.getLong("time"), Stamp(
                             if (frame.isNull("head")) null else frame.getString("head"),
                             if (frame.isNull("date")) null else frame.getString("date"),
-                            (0 until rows.length()).map { rows.getString(it) }))
+                            (0 until rows.length()).map { rows.getString(it) }),
+                            if(frame.isNull("tilt")) null else frame.getDouble("tilt").toFloat(),
+                            LevelStyle(frame.optInt("levelColor",Color.YELLOW),frame.optDouble("levelLength",1.0).toFloat()))
                     }
                     val location = if (data.has("lat")) Location("saved").apply {
                         latitude = data.getDouble("lat"); longitude = data.getDouble("lon")
@@ -684,18 +788,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             }
             value
         } else null
+        val shotStyle = LevelStyle.read(sp)
         val mirrored = level != null && front
         shotPending = true
         ic.takePicture(ex, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 runOnUiThread { if (!destroying && b("shutterSound")) shutterSound.play(MediaActionSound.SHUTTER_CLICK) }
-                try { process(image, level, mirrored) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close(); runOnUiThread { shotPending = false } }
+                try { process(image, level, mirrored, shotStyle) } catch (e: Exception) { toast(Language.text(this@MainActivity, "Lỗi lưu ảnh: {0}", (e.message))) } finally { image.close(); runOnUiThread { shotPending = false } }
             }
             override fun onError(e: ImageCaptureException) { runOnUiThread { shotPending = false }; toast(Language.text(this@MainActivity, "Chụp lỗi: {0}", (e.message))) }
         })
     }
 
-    private fun process(image: ImageProxy, level: Float?, mirrored: Boolean) {
+    private fun process(image: ImageProxy, level: Float?, mirrored: Boolean, style: LevelStyle) {
         val buf = image.planes[0].buffer
         val bytes = ByteArray(buf.remaining()); buf.get(bytes)
         var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
@@ -712,7 +817,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
         val L = lines(d)
         val rows = L.rows + (Language.text(this@MainActivity, "Mã xác thực: ") + code(d))
         // Draw after crop/rotation, before the existing stamps so their content stays legible.
-        level?.let { LevelCrosshair.draw(Canvas(bmp), bmp.width, bmp.height, it) }
+        level?.let { LevelCrosshair.draw(Canvas(bmp), bmp.width, bmp.height, it, style) }
         stamp(bmp, Stamp(L.head, L.date, rows))
         val name = "DatvipCam_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(d) + "_" + java.util.UUID.randomUUID() + ".jpg"
         val cv = ContentValues().apply {
@@ -802,6 +907,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     override fun onResume() { super.onResume(); if (granted(Manifest.permission.CAMERA) && provider == null) startCamera(); startSensors() }
     override fun onPause() {
         if (recording != null) stopVideo()
+        compassPanel?.dismiss(); compassPanel=null
+        bubble.available=false; bubble.invalidate()
         super.onPause()
         guides.tilt = null; levelSampleAt = 0L
         getSystemService(LocationManager::class.java).removeUpdates(this)
@@ -850,12 +957,15 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     override fun onProviderEnabled(provider: String) {}
     override fun onProviderDisabled(provider: String) {}
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        if (sensor?.type == Sensor.TYPE_ROTATION_VECTOR) compassAccurate=accuracy>=SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
+    }
     override fun onSensorChanged(e: SensorEvent) {
         if (e.sensor.type == gravitySensorType) {
             orientationFilter.update(e.values[0] / SensorManager.GRAVITY_EARTH.toDouble(),
                 e.values[1] / SensorManager.GRAVITY_EARTH.toDouble(), e.timestamp / 1_000_000)
             guides.tilt = orientationFilter.tilt
+            bubble.sample(e.values[0]/SensorManager.GRAVITY_EARTH,e.values[1]/SensorManager.GRAVITY_EARTH,curDeg)
             levelSampleAt = android.os.SystemClock.elapsedRealtime()
             val deg = orientationFilter.angle
             if (deg != curDeg) {
@@ -868,11 +978,19 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 imageCapture?.targetRotation = lastRot
                 videoCapture?.targetRotation = lastRot
             }
+            if (recording != null && !recordPending && !videoProcessing && videoClockElapsed > 0) {
+                addVideoFrame(videoClockUs + (android.os.SystemClock.elapsedRealtime()-videoClockElapsed)*1000)
+            }
             return
         }
         if (e.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
         val r = FloatArray(9); val r2 = FloatArray(9); val o = FloatArray(3)
         SensorManager.getRotationMatrixFromVector(r, e.values)
+        SensorManager.getOrientation(r,o)
+        val flatHeading=CompassMath.normalize(Math.toDegrees(o[0].toDouble()).toFloat())
+        compassHeading=compassHeading?.let { CompassMath.smooth(it,flatHeading) } ?: flatHeading
+        compassSampleAt=android.os.SystemClock.elapsedRealtime()
+        compassAccurate=e.accuracy>=SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
         SensorManager.remapCoordinateSystem(r, SensorManager.AXIS_X, SensorManager.AXIS_Z, r2)
         SensorManager.getOrientation(r2, o)
         hdg = ((Math.toDegrees(o[0].toDouble()) + 360) % 360).toFloat()

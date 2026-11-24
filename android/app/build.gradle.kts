@@ -1,6 +1,12 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+val cameraMapsProperties = Properties().apply {
+    val file = rootProject.file("maps.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
 }
 android {
     namespace = "com.datvip.cam"
@@ -10,8 +16,11 @@ android {
         applicationId = "com.datvip.cam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.1.3"
+        versionCode = 11
+        versionName = "1.2.0"
+        manifestPlaceholders["CAMERA_HT_MAPS_KEY"] = providers.gradleProperty("CAMERA_HT_MAPS_KEY")
+            .orElse(providers.environmentVariable("CAMERA_HT_MAPS_KEY"))
+            .getOrElse(cameraMapsProperties.getProperty("CAMERA_HT_MAPS_KEY", "")).trim()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -35,10 +44,18 @@ android {
             resValue("string", "app_name", "Camera HT Thước thử")
             matchingFallbacks += listOf("preview", "release")
         }
+        create("mapstest") {
+            initWith(getByName("leveltest"))
+            applicationIdSuffix = ".mapstest"
+            versionNameSuffix = "-mapstest"
+            resValue("string", "app_name", "Camera HT Maps thử")
+            matchingFallbacks += listOf("leveltest", "preview", "release")
+        }
     }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")

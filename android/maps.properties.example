@@ -1,0 +1,3 @@
+# Copy to android/maps.properties (ignored by Git).
+# Use an Android application restriction and Maps SDK for Android API restriction.
+CAMERA_HT_MAPS_KEY=

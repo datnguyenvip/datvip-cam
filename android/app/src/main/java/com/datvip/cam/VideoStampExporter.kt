@@ -11,6 +11,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.effect.TextureOverlay
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -21,7 +22,7 @@ import androidx.media3.transformer.Transformer
 import com.google.common.collect.ImmutableList
 import java.io.File
 
-data class VideoStampFrame(val timeUs: Long, val stamp: Stamp)
+data class VideoStampFrame(val timeUs: Long, val stamp: Stamp, val tilt: Float? = null, val style: LevelStyle = LevelStyle())
 
 /** Burns the recorded stamp timeline into the MP4 before publishing it to MediaStore. */
 @UnstableApi
@@ -33,8 +34,9 @@ class VideoStampExporter {
         input: File,
         output: File,
         landscape: Boolean,
+        mirrored: Boolean,
         frames: List<VideoStampFrame>,
-        draw: (Bitmap, Stamp) -> Unit,
+        draw: (Bitmap, VideoStampFrame) -> Unit,
         completed: () -> Unit,
         failed: (String) -> Unit
     ) {
@@ -56,7 +58,7 @@ class VideoStampExporter {
                 val result = checkNotNull(bitmap)
                 if (drawnIndex != index) {
                     result.eraseColor(Color.TRANSPARENT)
-                    draw(result, frames[index].stamp)
+                    draw(result, frames[index])
                     drawnIndex = index
                 }
                 return result
@@ -71,8 +73,11 @@ class VideoStampExporter {
         val crop = Presentation.createForAspectRatio(
             if (landscape) 4f / 3f else 3f / 4f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
+        val effects = mutableListOf<androidx.media3.common.Effect>()
+        if (mirrored) effects.add(ScaleAndRotateTransformation.Builder().setScale(-1f,1f).build())
+        effects.add(crop); effects.add(OverlayEffect(ImmutableList.of<TextureOverlay>(overlay)))
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input)))
-            .setEffects(Effects(emptyList(), listOf(crop, OverlayEffect(ImmutableList.of<TextureOverlay>(overlay)))))
+            .setEffects(Effects(emptyList(), effects))
             .build()
         val instance = Transformer.Builder(context)
             .setVideoMimeType(MimeTypes.VIDEO_H264)
