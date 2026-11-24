@@ -3,7 +3,7 @@ import UIKit
 
 enum LevelCrosshairRenderer {
     /// Coordinates are in the upright, cropped logical preview / image.
-    static func draw(_ context: CGContext, size: CGSize, tilt: Double) {
+    static func draw(_ context: CGContext, size: CGSize, tilt: Double, style: LevelStyle = LevelStyle()) {
         guard tilt.isFinite, size.width > 0, size.height > 0 else { return }
         let unit = min(size.width, size.height) / 360
         context.saveGState()
@@ -11,9 +11,9 @@ enum LevelCrosshairRenderer {
         context.translateBy(x: size.width / 2, y: size.height / 2)
         context.saveGState()
         context.rotate(by: CGFloat(tilt * .pi / 180))
-        let span = hypot(size.width, size.height)
+        let span = min(size.width, size.height) * style.fraction / 2
         for outline in [true, false] {
-            context.setStrokeColor((outline ? UIColor.black : UIColor.yellow).cgColor)
+            context.setStrokeColor((outline ? UIColor.black : style.uiColor).cgColor)
             context.setLineWidth((outline ? 3 : 1.2) * unit)
             context.move(to: CGPoint(x: -span, y: 0)); context.addLine(to: CGPoint(x: span, y: 0))
             context.move(to: CGPoint(x: 0, y: -span)); context.addLine(to: CGPoint(x: 0, y: span))
@@ -21,7 +21,7 @@ enum LevelCrosshairRenderer {
         }
         context.restoreGState()
         let label = String(format: "%+.1f°", locale: Locale(identifier: "en_US_POSIX"), tilt) as NSString
-        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 13 * unit), .foregroundColor: UIColor.yellow]
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 13 * unit), .foregroundColor: style.uiColor]
         let point = CGPoint(x: 12 * unit, y: -27 * unit)
         let textSize = label.size(withAttributes: attributes)
         context.setFillColor(UIColor.black.withAlphaComponent(0.8).cgColor)
@@ -31,27 +31,29 @@ enum LevelCrosshairRenderer {
         UIGraphicsPopContext()
         context.restoreGState()
     }
-    static func render(_ image: UIImage, tilt: Double) -> UIImage {
+    static func render(_ image: UIImage, tilt: Double, style: LevelStyle = LevelStyle()) -> UIImage {
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         return UIGraphicsImageRenderer(size: image.size, format: format).image { context in
             image.draw(at: .zero)
-            draw(context.cgContext, size: image.size, tilt: tilt)
+            draw(context.cgContext, size: image.size, tilt: tilt, style: style)
         }
     }
 }
 
 struct LevelCrosshairView: UIViewRepresentable {
     let tilt: Double?
+    var style: LevelStyle = LevelStyle()
     func makeUIView(context: Context) -> LevelCanvas {
         let view = LevelCanvas(); view.backgroundColor = .clear; view.isOpaque = false; view.isUserInteractionEnabled = false
         view.isAccessibilityElement = false; return view
     }
-    func updateUIView(_ view: LevelCanvas, context: Context) { view.tilt = tilt; view.setNeedsDisplay() }
+    func updateUIView(_ view: LevelCanvas, context: Context) { view.tilt = tilt; view.style = style; view.setNeedsDisplay() }
 }
 final class LevelCanvas: UIView {
     var tilt: Double?
+    var style = LevelStyle()
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext(), let tilt = tilt else { return }
-        LevelCrosshairRenderer.draw(context, size: bounds.size, tilt: tilt)
+        LevelCrosshairRenderer.draw(context, size: bounds.size, tilt: tilt, style: style)
     }
 }

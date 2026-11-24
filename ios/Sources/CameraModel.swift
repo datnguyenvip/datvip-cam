@@ -34,10 +34,43 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private let geocoder = CLGeocoder()
     private var lastGeo = Date.distantPast
     private var front = false
+    private let configurationQueue = DispatchQueue(label: "camera.configuration")
+    private var activeDevice: AVCaptureDevice?
+    @Published private(set) var zoom = 1.0
+    @Published private(set) var maxZoom = 1.0
+    @Published private(set) var compassHeading: Double?
+    @Published private(set) var compassReliable = false
+    private(set) var compassSampleAt = Date.distantPast
+    private var toolTilt: Double?
+    private var toolAngle = 0.0
+    private var toolSampleAt = Date.distantPast
+    private var recordingLevel = false
+    private var recordingAngle = 0.0
+    private var recordingStyle = LevelStyle()
+    private var levelOverlay: CIImage?
+    private var lastLevelOverlay = Date.distantPast
+    func updateTools(tilt: Double?, angle: Double) {
+        queue.async { self.toolTilt = tilt; self.toolAngle = angle; self.toolSampleAt = Date() }
+    }
+    func setZoom(_ value: Double) {
+        guard value.isFinite else { return }
+        configurationQueue.async {
+            guard let device = self.activeDevice else { return }
+            let limit = min(10.0,Double(device.maxAvailableVideoZoomFactor))
+            let target = min(limit,max(Double(device.minAvailableVideoZoomFactor),value))
+            do {
+                try device.lockForConfiguration()
+                device.cancelVideoZoomRamp(); device.videoZoomFactor = CGFloat(target)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self.zoom = target; self.maxZoom = limit }
+            } catch { }
+        }
+    }
     private struct LevelShot {
         let orientation: UIDeviceOrientation
         let aspect: CGFloat
         let tilt: Double?
+        let style: LevelStyle
     }
     private let shotLock = NSLock()
     private var shots: [Int64: LevelShot] = [:]
@@ -239,7 +272,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     func start() {
         AVCaptureDevice.requestAccess(for: .video) { ok in
             guard ok else { return }
-            DispatchQueue.global().async { self.configure(.back); self.session.startRunning() }
+            self.configurationQueue.async { self.configure(.back); self.session.startRunning() }
         }
         lm.delegate = self
         lm.desiredAccuracy = kCLLocationAccuracyBest
@@ -253,7 +286,10 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if session.canSetSessionPreset(preset) { session.sessionPreset = preset }
         session.inputs.forEach { session.removeInput($0) }
         if let d = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: pos),
-           let i = try? AVCaptureDeviceInput(device: d), session.canAddInput(i) { session.addInput(i) }
+           let i = try? AVCaptureDeviceInput(device: d), session.canAddInput(i) {
+            session.addInput(i); activeDevice = d
+            DispatchQueue.main.async { self.zoom = 1; self.maxZoom = min(10,Double(d.maxAvailableVideoZoomFactor)) }
+        }
         if videoMode, AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
            let a = AVCaptureDevice.default(for: .audio), let ai = try? AVCaptureDeviceInput(device: a), session.canAddInput(ai) { session.addInput(ai) }
         if !session.outputs.contains(output), session.canAddOutput(output) { session.addOutput(output) }
@@ -269,12 +305,12 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         }
         session.commitConfiguration()
     }
-    func flip() { front.toggle(); DispatchQueue.global().async { self.configure(self.front ? .front : .back) } }
+    func flip() { front.toggle(); configurationQueue.async { self.configure(self.front ? .front : .back) } }
     func shoot(level: Double? = nil, orientation: UIDeviceOrientation? = nil) {
         let captureOrientation = orientation ?? devOrient
         let settings = AVCapturePhotoSettings()
         shotLock.lock()
-        shots[settings.uniqueID] = LevelShot(orientation: captureOrientation, aspect: previewAspect, tilt: level)
+        shots[settings.uniqueID] = LevelShot(orientation: captureOrientation, aspect: previewAspect, tilt: level, style: LevelStyle.read())
         shotLock.unlock()
         if let conn = output.connection(with: .video), conn.isVideoOrientationSupported {
             if conn.isVideoMirroringSupported {
@@ -297,7 +333,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         videoMode = on
         if on { AVCaptureDevice.requestAccess(for: .audio) { _ in self.reconfigure() } } else { reconfigure() }
     }
-    private func reconfigure() { DispatchQueue.global().async { self.configure(self.front ? .front : .back) } }
+    private func reconfigure() { configurationQueue.async { self.configure(self.front ? .front : .back) } }
     private func avOrientation(_ o: UIDeviceOrientation) -> AVCaptureVideoOrientation {
         switch o {
         case .landscapeLeft: return .landscapeRight
@@ -310,14 +346,21 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     private func startRecording() {
         guard videoMode, !isRecording else { return }
         let o = devOrient, l = loc
+        let withLevel = UserDefaults.standard.bool(forKey: "levelCrosshair"), style = LevelStyle.read()
+        let mirror = withLevel && front
         recOrient = o; isRecording = true; recSeconds = 0
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.recSeconds += 1 }
         queue.async {
-            if let conn = self.videoOut.connection(with: .video), conn.isVideoOrientationSupported { conn.videoOrientation = self.avOrientation(o) }
+            if let conn = self.videoOut.connection(with: .video), conn.isVideoOrientationSupported {
+                conn.videoOrientation = self.avOrientation(o)
+                if conn.isVideoMirroringSupported { conn.automaticallyAdjustsVideoMirroring = false; conn.isVideoMirrored = mirror }
+            }
             self.recURL = FileManager.default.temporaryDirectory.appendingPathComponent("rec_\(UUID().uuidString).mp4")
             self.recStartDate = Date(); self.recLoc = l; self.recCode = self.code(self.recStartDate, l)
             let activeCode = self.recCode
             DispatchQueue.main.async { self.previewVerificationCode = activeCode }
+            self.recordingLevel = withLevel; self.recordingAngle = self.toolAngle; self.recordingStyle = style
+            self.levelOverlay = nil; self.lastLevelOverlay = .distantPast
             self.recWriterReady = false; self.overlayCI = nil; self.lastOverlay = .distantPast
             self.recording = true
         }
@@ -384,7 +427,18 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out)
         guard let ob = out else { return }
         let src = CIImage(cvPixelBuffer: pb).cropped(to: cropRect).transformed(by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY))
-        ciContext.render((overlayCI ?? CIImage.empty()).composited(over: src), to: ob)
+        if recordingLevel && Date().timeIntervalSince(lastLevelOverlay) >= 0.1 {
+            levelOverlay = nil; lastLevelOverlay = Date()
+            if let tilt = toolTilt, Date().timeIntervalSince(toolSampleAt) <= 0.5 {
+                let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
+                let image = UIGraphicsImageRenderer(size: outSize, format: fmt).image { context in
+                    LevelCrosshairRenderer.draw(context.cgContext, size: outSize, tilt: tilt + toolAngle - recordingAngle, style: recordingStyle)
+                }
+                levelOverlay = CIImage(image: image)
+            }
+        }
+        let leveled = (recordingLevel ? levelOverlay : nil)?.composited(over: src) ?? src
+        ciContext.render((overlayCI ?? CIImage.empty()).composited(over: leveled), to: ob)
         ad.append(ob, withPresentationTime: pts)
     }
     private func finishVideo(_ tmp: URL, _ d: Date, _ l: CLLocation?) {
@@ -426,7 +480,7 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         let metadata = photo.metadata
         DispatchQueue.global(qos: .userInitiated).async {
             let cropped = img.normalized().cropped(to: aspect)
-            let base = shot.tilt.map { LevelCrosshairRenderer.render(cropped, tilt: $0) } ?? cropped
+            let base = shot.tilt.map { LevelCrosshairRenderer.render(cropped, tilt: $0, style: shot.style) } ?? cropped
             var L = self.lines(d, l)
             L.rows.append(AppLanguage.text("Mã xác thực: ") + self.code(d, l))
             let out = self.stamp(base, L)
@@ -641,5 +695,8 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
     }
     func locationManager(_ manager: CLLocationManager, didUpdateHeading h: CLHeading) {
         heading = h.trueHeading >= 0 ? h.trueHeading : h.magneticHeading
+        compassHeading = h.headingAccuracy >= 0 ? h.magneticHeading : nil
+        compassReliable = h.headingAccuracy >= 0 && h.headingAccuracy <= 15
+        compassSampleAt = Date()
     }
 }

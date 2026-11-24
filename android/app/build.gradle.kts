@@ -10,8 +10,9 @@ android {
         applicationId = "com.datvip.cam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.1.3"
+        versionCode = 11
+        versionName = "1.2.0"
+        manifestPlaceholders["CAMERA_HT_MAPS_KEY"] = providers.gradleProperty("CAMERA_HT_MAPS_KEY").orElse("").get()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -39,6 +40,7 @@ android {
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")

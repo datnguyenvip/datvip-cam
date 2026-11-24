@@ -9,6 +9,8 @@ import kotlin.math.abs
 
 /** Grid remains preview-only; the level uses the shared photo renderer. */
 class CompositionGuidesView(context: Context) : View(context) {
+    var style = LevelStyle()
+        set(value) { field = value; invalidate() }
     var gridEnabled = false
         set(value) { field = value; invalidate() }
     var levelEnabled = false
@@ -26,7 +28,7 @@ class CompositionGuidesView(context: Context) : View(context) {
             canvas.drawLine(0f, h * i / 3, w, h * i / 3, paint)
         }
         if (levelEnabled) {
-            tilt?.let { LevelCrosshair.draw(canvas, width, height, it) } ?: run {
+            tilt?.let { LevelCrosshair.draw(canvas, width, height, it, style) } ?: run {
                 paint.color = Color.YELLOW; paint.textSize = 13f * d
                 canvas.drawText(Language.text(context, "Chưa xác định được phương chuẩn"), 12*d, h/2, paint)
             }
