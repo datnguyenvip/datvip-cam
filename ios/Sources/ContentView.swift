@@ -88,7 +88,7 @@ struct ContentView: View {
         .onDisappear { motion.stop() }
         .sheet(isPresented: $showLevelSettings) { LevelToolsSettings() }
         .sheet(isPresented: $showCompass) { FengShuiCompass(model: m) }
-        .onChange(of: motion.tilt) { _ in m.updateTools(tilt: motion.captureTilt, angle: motion.angle) }
+        .onChange(of: motion.sampleTime) { _ in m.updateTools(tilt: motion.captureTilt, angle: motion.angle) }
         .alert(AppLanguage.text("Thước cân bằng"), isPresented: $levelWarning) {
             Button("OK", role: .cancel) {}
         } message: { Text(AppLanguage.text("Chưa xác định được phương chuẩn")) }

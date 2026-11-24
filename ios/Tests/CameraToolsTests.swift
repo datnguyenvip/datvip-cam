@@ -27,7 +27,7 @@ final class CameraToolsTests: XCTestCase {
         XCTAssertEqual(image.size.width,360)
         var pixels=[UInt8](repeating:0,count:360*480*4)
         pixels.withUnsafeMutableBytes { bytes in
-            let context=CGContext(data:bytes.baseAddress,width:360,height:480,bitsPerComponent:8,bytesPerRow:360*4,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue)!
+            let context=CGContext(data:bytes.baseAddress,width:360,height:480,bitsPerComponent:8,bytesPerRow:360*4,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
             context.draw(image.cgImage!,in:CGRect(x:0,y:0,width:360,height:480))
             let on=(240*360+220)*4, outside=(240*360+280)*4
             let data=bytes.bindMemory(to:UInt8.self)
