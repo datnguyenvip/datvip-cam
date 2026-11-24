@@ -140,6 +140,8 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
     private var videoLandscape = false
     private var videoCode = ""
     private var lastVideoSecond = -1L
+    private var videoClockUs = 0L
+    private var videoClockElapsed = 0L
     private var recoveryChecked = false
     private fun videoBusy() = recordPending || recording != null || videoProcessing
     private lateinit var pv: PreviewView
@@ -616,11 +618,13 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
             recording = pending.start(ContextCompat.getMainExecutor(this)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
+                        videoClockUs = 0; videoClockElapsed = android.os.SystemClock.elapsedRealtime()
                         recordPending = false
                         updateVideoUi(); recordStatus.text = "● 0:00"
                     }
                     is VideoRecordEvent.Status -> {
                         val durationUs = event.recordingStats.recordedDurationNanos / 1000
+                        videoClockUs = durationUs; videoClockElapsed = android.os.SystemClock.elapsedRealtime()
                         addVideoFrame(durationUs)
                         val sec = durationUs / 1_000_000
                         recordStatus.text = String.format(Locale.US, "● %d:%02d", sec / 60, sec % 60)
@@ -649,7 +653,7 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
 
     private fun addVideoFrame(timeUs: Long) {
         val bucket = timeUs / 100_000
-        if (bucket == lastVideoSecond) return
+        if (bucket <= lastVideoSecond) return
         lastVideoSecond = bucket
         val second = timeUs / 1_000_000
         val line = lines(Date(videoStart.time + second * 1000))
@@ -972,6 +976,9 @@ class MainActivity : AppCompatActivity(), LocationListener, SensorEventListener 
                 lastRot = when (curDeg) { 90 -> Surface.ROTATION_90; -90 -> Surface.ROTATION_270; 180 -> Surface.ROTATION_180; else -> Surface.ROTATION_0 }
                 imageCapture?.targetRotation = lastRot
                 videoCapture?.targetRotation = lastRot
+            }
+            if (recording != null && !recordPending && !videoProcessing && videoClockElapsed > 0) {
+                addVideoFrame(videoClockUs + (android.os.SystemClock.elapsedRealtime()-videoClockElapsed)*1000)
             }
             return
         }
