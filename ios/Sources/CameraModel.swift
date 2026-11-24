@@ -289,7 +289,8 @@ final class CameraModel: NSObject, ObservableObject, CLLocationManagerDelegate, 
         if let d = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: pos),
            let i = try? AVCaptureDeviceInput(device: d), session.canAddInput(i) {
             session.addInput(i); activeDevice = d
-            DispatchQueue.main.async { self.zoom = 1; self.maxZoom = min(10,Double(d.maxAvailableVideoZoomFactor)) }
+            let actualZoom = Double(d.videoZoomFactor), limit = min(10,Double(d.maxAvailableVideoZoomFactor))
+            DispatchQueue.main.async { self.zoom = actualZoom; self.maxZoom = limit }
         }
         if videoMode, AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
            let a = AVCaptureDevice.default(for: .audio), let ai = try? AVCaptureDeviceInput(device: a), session.canAddInput(ai) { session.addInput(ai) }
