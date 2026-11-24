@@ -14,6 +14,17 @@ import java.io.File
 @Config(sdk=[36])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CameraToolsTest {
+    @Test fun compassMapModeLeavesTheMapVisibleThroughTheDial() {
+        val view=CompassDialView(RuntimeEnvironment.getApplication()).apply { layout(0,0,480,640) }
+        fun fillAlpha():Int {
+            val bitmap=Bitmap.createBitmap(480,640,Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(bitmap))
+            return Color.alpha(bitmap.getPixel(280,350))
+        }
+        assertTrue(fillAlpha()>190)
+        view.overMap=true
+        assertTrue("The compass face must not hide map detail",fillAlpha()<64)
+    }
     @Test fun shortenedColoredAxesMatchPreviewAndVideoFrame() {
         val bitmap=Bitmap.createBitmap(360,480,Bitmap.Config.ARGB_8888)
         val style=LevelStyle(Color.CYAN,.4f)

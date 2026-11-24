@@ -55,7 +55,7 @@ android {
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
-    implementation("com.google.android.gms:play-services-maps:19.2.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")

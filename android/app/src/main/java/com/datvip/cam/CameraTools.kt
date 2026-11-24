@@ -55,13 +55,17 @@ class BubbleLevelView(context: Context) : View(context) {
 }
 
 class CompassDialView(context: Context) : View(context) {
+    var overMap = false
+        set(value) { field = value; invalidate() }
     var heading: Float? = null
         set(value) { field = value; invalidate() }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
         val r = min(width,height)*.46f; val cx = width/2f; val cy = height/2f
         c.save(); c.translate(cx,cy)
-        p.style=Paint.Style.FILL; p.color=0xCD111C24.toInt(); c.drawCircle(0f,0f,r,p)
+        p.clearShadowLayer()
+        p.style=Paint.Style.FILL; p.color=if(overMap) 0x18111C24 else 0xCD111C24.toInt(); c.drawCircle(0f,0f,r,p)
+        if(overMap) p.setShadowLayer(3f,0f,0f,Color.BLACK)
         p.style=Paint.Style.STROKE; p.color=Color.YELLOW; p.strokeWidth=2f
         c.drawCircle(0f,0f,r,p); c.drawCircle(0f,0f,r*.70f,p)
         p.textAlign=Paint.Align.CENTER; p.textSize=r*.085f; p.typeface=Typeface.DEFAULT_BOLD

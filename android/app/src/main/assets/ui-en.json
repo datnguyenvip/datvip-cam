@@ -284,6 +284,10 @@
   "Chưa cấu hình Google Maps. La bàn vẫn dùng được không có mạng.": "Google Maps is not configured. The compass still works offline.",
   "Thước cân bằng: lưu đường chuẩn và góc vào ảnh và video. Bọt thủy hiển thị riêng trên khung ngắm. Chỉ hỗ trợ kiểm tra sơ bộ; không thay thế thiết bị trắc địa.": "Level crosshair: reference lines and angles are saved in photos and videos. The bubble level is preview only. For preliminary checks; does not replace surveying instruments.",
   "Bắc thật ở trên": "True north up",
+  "Ẩn bản đồ": "Hide map",
+  "Bản đồ": "Map",
+  "Đang chờ vị trí. Bật GPS và cấp quyền vị trí cho Camera HT.": "Waiting for location. Turn on GPS and allow Camera HT to access your location.",
+  "Bản đồ đường phố · Cần Internet để tải bản đồ mới.": "Street map · Internet needed to load new map areas.",
   "Chưa có vị trí. Hãy bật vị trí, cấp quyền cho Camera HT và chờ nhận GPS rồi thử lại.": "Location unavailable. Turn on location, allow Camera HT to access it and wait for a GPS fix before trying again.",
   "Không tìm thấy ứng dụng bản đồ hoặc trình duyệt để mở vị trí.": "No maps app or browser is available to open this location."
 }
