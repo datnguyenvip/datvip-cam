@@ -44,6 +44,13 @@ android {
             resValue("string", "app_name", "Camera HT Thước thử")
             matchingFallbacks += listOf("preview", "release")
         }
+        create("mapstest") {
+            initWith(getByName("leveltest"))
+            applicationIdSuffix = ".mapstest"
+            versionNameSuffix = "-mapstest"
+            resValue("string", "app_name", "Camera HT Maps thử")
+            matchingFallbacks += listOf("leveltest", "preview", "release")
+        }
     }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }

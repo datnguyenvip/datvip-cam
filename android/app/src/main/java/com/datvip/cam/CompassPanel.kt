@@ -2,6 +2,9 @@ package com.datvip.cam
 
 import android.app.Dialog
 import android.content.Context
+import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -67,10 +70,11 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
         val controls=LinearLayout(context)
         fun button(label:String,action:(Button)->Unit) { controls.addView(Button(context).apply { text=label; setOnClickListener { action(this) } },LinearLayout.LayoutParams(0,-2,1f)) }
         button(Language.text(context,"Vòng la bàn")) { dial.visibility=if(dial.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE }
-        button(Language.text(context,"Vệ tinh")) {
-            val view=mapView
-            if(view==null) AlertDialog.Builder(context).setMessage(Language.text(context,"Chưa cấu hình Google Maps. La bàn vẫn dùng được không có mạng.")).setPositiveButton(Language.text(context,"Xong"),null).show()
-            else { lockRequested=false; locked=null; view.visibility=if(view.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE; if(view.visibility==android.view.View.VISIBLE) centerMap(true) }
+        button("Google Maps") { openExternalMap() }
+        if(mapView!=null) button(Language.text(context,"Vệ tinh")) {
+            val view=mapView ?: return@button
+            lockRequested=false; locked=null; view.visibility=if(view.visibility==android.view.View.VISIBLE) android.view.View.GONE else android.view.View.VISIBLE
+            if(view.visibility==android.view.View.VISIBLE) centerMap(true)
         }
         root.addView(controls)
         val footer=LinearLayout(context)
@@ -79,13 +83,37 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
             lockRequested=!lockRequested; locked=if(lockRequested) dial.heading else null
             text=if(lockRequested) Language.text(context,"Mở khóa") else Language.text(context,"Khóa hướng")
         } }.also { lockButton=it },LinearLayout.LayoutParams(0,-2,1f))
-        footer.addView(Button(context).apply { text=Language.text(context,"Vị trí của tôi"); setOnClickListener { centerMap(true) } },LinearLayout.LayoutParams(0,-2,1f))
+        footer.addView(Button(context).apply { text=Language.text(context,"Vị trí của tôi"); setOnClickListener {
+            if(mapView?.visibility==android.view.View.VISIBLE) centerMap(true) else openExternalMap()
+        } },LinearLayout.LayoutParams(0,-2,1f))
         footer.addView(Button(context).apply { text=Language.text(context,"Xong"); setOnClickListener { dismiss() } },LinearLayout.LayoutParams(0,-2,1f))
         root.addView(footer); setContentView(root); handler.post(tick)
     }
     private fun centerMap(force:Boolean=false) {
         val l=location() ?: return
         map?.let { if(force||!centered) { it.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(l.latitude,l.longitude),18f)); centered=true } }
+    }
+    private fun openExternalMap() {
+        val l=location()
+        if(l==null) {
+            AlertDialog.Builder(context)
+                .setMessage(Language.text(context,"Chưa có vị trí. Hãy bật vị trí, cấp quyền cho Camera HT và chờ nhận GPS rồi thử lại."))
+                .setPositiveButton(Language.text(context,"Xong"),null).show()
+            return
+        }
+        // Maps URLs need no API key and also work in a browser without the Maps app.
+        val uri=Uri.parse("https://www.google.com/maps/search/").buildUpon()
+            .appendQueryParameter("api","1")
+            .appendQueryParameter("query","${l.latitude},${l.longitude}").build()
+        val intent=Intent(Intent.ACTION_VIEW,uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(Intent(intent).setPackage("com.google.android.apps.maps"))
+        } catch(_:ActivityNotFoundException) {
+            try { context.startActivity(intent) }
+            catch(_:ActivityNotFoundException) {
+                Toast.makeText(context,Language.text(context,"Không tìm thấy ứng dụng bản đồ hoặc trình duyệt để mở vị trí."),Toast.LENGTH_LONG).show()
+            }
+        }
     }
     override fun dismiss() { handler.removeCallbacks(tick); mapView?.onPause(); mapView?.onStop(); mapView?.onDestroy(); mapView=null; super.dismiss() }
 }
