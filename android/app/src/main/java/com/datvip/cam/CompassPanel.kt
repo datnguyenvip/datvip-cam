@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.hardware.GeomagneticField
 import android.location.Location
 import android.net.Uri
@@ -77,7 +78,16 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
             view.controller.setZoom(5.0)
             view.controller.setCenter(GeoPoint(16.0,106.0))
             stage.addView(view,FrameLayout.LayoutParams(-1,-1))
-            marker=Marker(view).apply { isEnabled=false; setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_CENTER); setOnMarkerClickListener { _, _ -> true } }
+            marker=Marker(view).apply {
+                isEnabled=false
+                val d=context.resources.displayMetrics.density
+                icon=GradientDrawable().apply {
+                    shape=GradientDrawable.OVAL; setColor(0xFF1687FF.toInt())
+                    setStroke((2*d).toInt(),Color.WHITE); setSize((18*d).toInt(),(18*d).toInt())
+                }
+                setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_CENTER)
+                setOnMarkerClickListener { _, _ -> true }
+            }
             view.overlays.add(marker)
             view.onResume()
         }
