@@ -1,6 +1,12 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+val cameraMapsProperties = Properties().apply {
+    val file = rootProject.file("maps.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
 }
 android {
     namespace = "com.datvip.cam"
@@ -12,7 +18,9 @@ android {
         targetSdk = 36
         versionCode = 11
         versionName = "1.2.0"
-        manifestPlaceholders["CAMERA_HT_MAPS_KEY"] = providers.gradleProperty("CAMERA_HT_MAPS_KEY").orElse("").get()
+        manifestPlaceholders["CAMERA_HT_MAPS_KEY"] = providers.gradleProperty("CAMERA_HT_MAPS_KEY")
+            .orElse(providers.environmentVariable("CAMERA_HT_MAPS_KEY"))
+            .getOrElse(cameraMapsProperties.getProperty("CAMERA_HT_MAPS_KEY", "")).trim()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

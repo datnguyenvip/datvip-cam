@@ -28,6 +28,7 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
     private lateinit var dial: CompassDialView
     private lateinit var readout: TextView
     private lateinit var state: TextView
+    private lateinit var lockButton: Button
     private var centered=false
     private val tick=object:Runnable { override fun run() {
         val magnetic=heading()
@@ -35,6 +36,7 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
         val actual=if(satellite) location()?.let { l -> magnetic?.let { CompassMath.normalize(it+GeomagneticField(l.latitude.toFloat(),l.longitude.toFloat(),l.altitude.toFloat(),System.currentTimeMillis()).declination) } } else magnetic
         val h=if(lockRequested) locked else actual
         dial.heading=h
+        lockButton.text=if(lockRequested) Language.text(context,"Mở khóa") else Language.text(context,"Khóa hướng")
         readout.text=if(h==null) Language.text(context,"Chưa có hướng la bàn") else String.format(java.util.Locale.US,"%.1f° · %s\n↔ %.1f° · %s",h,CompassMath.mountain(h),CompassMath.normalize(h+180),CompassMath.mountain(h+180))
         state.text=(if(satellite) Language.text(context,"Bắc thật ở trên") else Language.text(context,"Bắc ở trên · Hướng từ"))+"\n"+if(!accurate()) Language.text(context,"Tránh kim loại, di chuyển máy hình số 8 để hiệu chỉnh.") else Language.text(context,"Giữ điện thoại nằm phẳng khi đọc hướng.")
         if(!centered) centerMap()
@@ -76,7 +78,7 @@ class CompassPanel(context: Context, private val heading: () -> Float?, private 
             if(!lockRequested && dial.heading==null) return@setOnClickListener
             lockRequested=!lockRequested; locked=if(lockRequested) dial.heading else null
             text=if(lockRequested) Language.text(context,"Mở khóa") else Language.text(context,"Khóa hướng")
-        } },LinearLayout.LayoutParams(0,-2,1f))
+        } }.also { lockButton=it },LinearLayout.LayoutParams(0,-2,1f))
         footer.addView(Button(context).apply { text=Language.text(context,"Vị trí của tôi"); setOnClickListener { centerMap(true) } },LinearLayout.LayoutParams(0,-2,1f))
         footer.addView(Button(context).apply { text=Language.text(context,"Xong"); setOnClickListener { dismiss() } },LinearLayout.LayoutParams(0,-2,1f))
         root.addView(footer); setContentView(root); handler.post(tick)
