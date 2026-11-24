@@ -25,5 +25,15 @@ final class CameraToolsTests: XCTestCase {
         let attachment=XCTAttachment(image:image);attachment.name="custom-cyan-crosshair";attachment.lifetime = .keepAlways;add(attachment)
         XCTAssertNotNil(image.cgImage)
         XCTAssertEqual(image.size.width,360)
+        var pixels=[UInt8](repeating:0,count:360*480*4)
+        pixels.withUnsafeMutableBytes { bytes in
+            let context=CGContext(data:bytes.baseAddress,width:360,height:480,bitsPerComponent:8,bytesPerRow:360*4,space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.draw(image.cgImage!,in:CGRect(x:0,y:0,width:360,height:480))
+            let on=(240*360+220)*4, outside=(240*360+280)*4
+            let data=bytes.bindMemory(to:UInt8.self)
+            XCTAssertGreaterThan(data[on+1],data[on])
+            XCTAssertGreaterThan(data[on+2],data[on])
+            XCTAssertEqual(data[outside+3],0)
+        }
     }
 }

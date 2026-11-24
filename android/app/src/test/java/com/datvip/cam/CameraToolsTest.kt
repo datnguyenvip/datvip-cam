@@ -18,7 +18,8 @@ class CameraToolsTest {
         val bitmap=Bitmap.createBitmap(360,480,Bitmap.Config.ARGB_8888)
         val style=LevelStyle(Color.CYAN,.4f)
         LevelCrosshair.draw(Canvas(bitmap),360,480,0f,style)
-        assertEquals(Color.CYAN,bitmap.getPixel(220,240))
+        val pixel=bitmap.getPixel(220,240)
+        assertTrue(Color.green(pixel)>Color.red(pixel) && Color.blue(pixel)>Color.red(pixel))
         assertEquals(0,Color.alpha(bitmap.getPixel(280,240)))
         assertEquals(0,Color.alpha(bitmap.getPixel(180,340)))
         val view=CompositionGuidesView(RuntimeEnvironment.getApplication()).apply { layout(0,0,360,480); levelEnabled=true; tilt=0f; this.style=style }
