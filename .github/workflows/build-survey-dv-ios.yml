@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       upload:
-        description: Upload IPA to TestFlight
+        description: Reserved flag; this packaging branch never uploads
         type: boolean
         default: false
 
@@ -42,6 +42,8 @@ jobs:
 
       # 3. Restore and build Flutter iOS
       - name: Restore iOS project
+        env:
+          SURVEY_GOOGLE_MAPS_IOS_KEY: ${{ secrets.SURVEY_GOOGLE_MAPS_IOS_KEY }}
         shell: bash
         run: |
           set -euo pipefail
