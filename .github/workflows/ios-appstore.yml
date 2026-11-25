@@ -7,14 +7,88 @@ on:
         default: false
   workflow_dispatch:
     inputs:
+      existing_run_id:
+        description: Reuse the signed IPA artifact from this successful workflow run
+        type: string
+        default: ''
       upload:
         description: Upload the verified build to App Store Connect
         type: boolean
         default: false
 permissions:
   contents: read
+  actions: read
 jobs:
+  upload-existing:
+    if: github.event_name == 'workflow_dispatch' && inputs.upload && inputs.existing_run_id != ''
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: CameraHT-AppStore-signed
+          run-id: ${{ inputs.existing_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: signed-input
+      - name: Verify the original signed release IPA
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, pathlib, plistlib, zipfile
+          ipa=pathlib.Path('signed-input/DatvipCam.ipa')
+          assert hashlib.sha256(ipa.read_bytes()).hexdigest() == '93056439ef2f835a382e3be66767d1730915bb40f15cd46c3af0816b3350150c'
+          with zipfile.ZipFile(ipa) as z:
+              assert z.testzip() is None
+              info=plistlib.loads(z.read('Payload/DatvipCam.app/Info.plist'))
+              assert info['CFBundleIdentifier']=='com.datvip.cam'
+              assert info['CFBundleShortVersionString']=='1.2.0'
+              assert info['CFBundleVersion']=='172'
+              z.extractall('signed-check')
+          print('Verified original Camera HT 1.2.0 (172) IPA checksum and identity.')
+          PY
+          codesign --verify --deep --strict signed-check/Payload/DatvipCam.app
+      - name: Prepare API client
+        run: |
+          python3 -m venv "$RUNNER_TEMP/asc-client"
+          "$RUNNER_TEMP/asc-client/bin/pip" install --quiet cryptography
+      - name: Check whether Apple already has this build
+        id: before
+        run: |
+          "$RUNNER_TEMP/asc-client/bin/python" scripts/check-asc-build.py --output before.json
+          python3 - <<'PY'
+          import json,os
+          data=json.load(open('before.json'))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write('exists='+str(bool(data['build'])).lower()+'\n')
+          PY
+      - name: Upload the verified existing IPA
+        if: steps.before.outputs.exists != 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$ASC_PRIVATE_KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          xcrun altool --upload-app --type ios --file signed-input/DatvipCam.ipa --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+      - name: Wait for Apple processing
+        run: |
+          "$RUNNER_TEMP/asc-client/bin/python" scripts/check-asc-build.py --wait --output apple-build-status.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CameraHT-AppStore-upload-status
+          path: |
+            before.json
+            apple-build-status.json
+      - name: Remove API private key
+        if: always()
+        run: rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
   appstore:
+    if: inputs.existing_run_id == '' || inputs.existing_run_id == null
     runs-on: macos-15-intel
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
